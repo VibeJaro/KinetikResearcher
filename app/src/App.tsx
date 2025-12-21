@@ -44,7 +44,7 @@ const experiments: Experiment[] = Array.from({ length: 20 }, (_, index) => {
     id: `exp-${index + 1}`,
     name: `Experiment ${index + 1}`,
     substrate: index % 2 === 0 ? "Substrate A" : "Substrate B",
-    temperature: `${22 + (index % 6)}°C",
+    temperature: `${22 + (index % 6)}°C`,
     status
   };
 });
