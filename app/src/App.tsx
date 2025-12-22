@@ -1,13 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 import { parseFile } from "./lib/import/parseFile";
 import { MappingPanel } from "./components/import/MappingPanel";
+import { ValidationReportPanel } from "./components/import/ValidationReport";
 import {
   applyMappingToDataset,
   type MappingError,
   type MappingSelection,
   type MappingStats
 } from "./lib/import/mapping";
+import { buildValidationReport } from "./lib/import/validation";
 import type { AuditEntry, Dataset, RawTable } from "./lib/import/types";
 
 // UI reference draft: design/kinetik-researcher.design-draft.html
@@ -187,6 +189,18 @@ function App() {
   });
   const [mappingErrors, setMappingErrors] = useState<MappingError[]>([]);
   const [mappingStats, setMappingStats] = useState<MappingStats | null>(null);
+  const [shouldFocusMapping, setShouldFocusMapping] = useState(false);
+  const lastValidationSignature = useRef<string | null>(null);
+
+  const validationReport = useMemo(() => {
+    if (!dataset || !mappingStats) {
+      return null;
+    }
+    return buildValidationReport(dataset);
+  }, [dataset, mappingStats]);
+
+  const validationStatus = validationReport?.status ?? "clean";
+  const canContinue = validationStatus !== "broken";
 
   const importedExperiments = dataset?.experiments ?? [];
   const sidebarExperiments = useMemo<SidebarExperiment[]>(() => {
@@ -307,6 +321,43 @@ function App() {
     setMappingErrors([]);
     setMappingStats(null);
   }, [activeRawTable]);
+
+  useEffect(() => {
+    if (activeStep !== "Import & Mapping" || !shouldFocusMapping) {
+      return;
+    }
+    const panel = document.getElementById("mapping-panel");
+    if (panel) {
+      panel.scrollIntoView({ behavior: "smooth", block: "start" });
+      const focusable = panel.querySelector("select, button, input");
+      if (focusable instanceof HTMLElement) {
+        focusable.focus();
+      }
+    }
+    setShouldFocusMapping(false);
+  }, [activeStep, shouldFocusMapping]);
+
+  useEffect(() => {
+    if (!validationReport || !dataset) {
+      return;
+    }
+    const signature = JSON.stringify({
+      datasetId: dataset.id,
+      status: validationReport.status,
+      summary: validationReport.summary,
+      findings: validationReport.findings.length
+    });
+    if (lastValidationSignature.current === signature) {
+      return;
+    }
+    lastValidationSignature.current = signature;
+    const reportEntry = createAuditEntry("IMPORT_REPORT_GENERATED", {
+      status: validationReport.status,
+      summary: validationReport.summary,
+      findings: validationReport.findings.length
+    });
+    setAuditEntries((prev) => [reportEntry, ...prev]);
+  }, [dataset, validationReport]);
 
   const handleExperimentToggle = (id: string) => {
     setSelectedAnswer(null);
@@ -477,6 +528,15 @@ function App() {
       const points = typeof payload.pointCount === "number" ? payload.pointCount : 0;
       return `Mapping applied: ${experiments} experiments, ${series} series, ${points} points.`;
     }
+    if (entry.type === "IMPORT_REPORT_GENERATED") {
+      const status = typeof payload.status === "string" ? payload.status : "unknown";
+      const summary = payload.summary as Record<string, number> | undefined;
+      const experiments = summary?.experiments ?? 0;
+      const series = summary?.series ?? 0;
+      const points = summary?.totalPoints ?? 0;
+      const dropped = summary?.droppedPoints ?? 0;
+      return `Import report: ${status} (${experiments} experiments, ${series} series, ${points} points, ${dropped} dropped).`;
+    }
     return "Audit entry recorded.";
   };
 
@@ -567,17 +627,42 @@ function App() {
             </div>
           )}
           {activeRawTable && (
-            <MappingPanel
-              table={activeRawTable}
-              fileName={importFileName}
-              selection={mappingSelection}
-              onSelectionChange={setMappingSelection}
-              onApply={handleApplyMapping}
-              errors={mappingErrors}
-              stats={mappingStats}
-            />
+            <div id="mapping-panel">
+              <MappingPanel
+                table={activeRawTable}
+                fileName={importFileName}
+                selection={mappingSelection}
+                onSelectionChange={setMappingSelection}
+                onApply={handleApplyMapping}
+                errors={mappingErrors}
+                stats={mappingStats}
+              />
+            </div>
           )}
         </div>
+      );
+    }
+
+    if (activeStep === "Validation") {
+      if (!validationReport) {
+        return (
+          <div className="empty-state">
+            <h3>No dataset to validate</h3>
+            <p>Import and map a dataset to generate the validation report.</p>
+          </div>
+        );
+      }
+
+      return (
+        <ValidationReportPanel
+          report={validationReport}
+          onBackToMapping={() => {
+            setShouldFocusMapping(true);
+            setActiveStep("Import & Mapping");
+          }}
+          onContinue={() => setActiveStep("Questions")}
+          canContinue={canContinue}
+        />
       );
     }
 

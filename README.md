@@ -9,6 +9,8 @@ The app lives in `app/` and mirrors the UI structure from the design draft at
 
 The Import & Mapping step now includes a mapping wizard that converts parsed
 RawTables into Dataset experiments and series (see `app/src/lib/import/mapping.ts`).
+The Validation step surfaces an import report with status, findings, and summary
+counts from pure checks (see `app/src/lib/import/validation.ts`).
 
 ```bash
 cd app

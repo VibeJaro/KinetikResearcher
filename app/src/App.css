@@ -405,6 +405,68 @@
   gap: 12px;
 }
 
+.validation-report {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.validation-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.validation-body h4 {
+  margin-bottom: 8px;
+}
+
+.validation-findings {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.validation-findings .finding {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #f8fafc;
+}
+
+.validation-findings .finding.warn {
+  border-color: #fde68a;
+  background: #fef3c7;
+}
+
+.validation-findings .finding.error {
+  border-color: #fecaca;
+  background: #fee2e2;
+}
+
+.validation-findings .finding.info {
+  border-color: #bfdbfe;
+  background: #dbeafe;
+}
+
+.validation-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
 .status-pill {
   padding: 4px 10px;
   border-radius: 999px;
@@ -428,6 +490,11 @@
 .status-warning {
   background: #fef3c7;
   color: #92400e;
+}
+
+.status-error {
+  background: #fee2e2;
+  color: #991b1b;
 }
 
 .status-done {

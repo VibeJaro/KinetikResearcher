@@ -48,7 +48,7 @@ describe("mapping logic", () => {
     expect(seriesPoints).toEqual(expect.arrayContaining([2, 1]));
   });
 
-  it("returns errors when time column is invalid", () => {
+  it("drops rows when time values are invalid", () => {
     const table: RawTable = {
       headers: ["time", "value"],
       rows: [["not-a-number", 1]]
@@ -68,8 +68,10 @@ describe("mapping logic", () => {
       fileName: "run.csv"
     });
 
-    expect(result.dataset).toBeNull();
-    expect(result.errors).toHaveLength(1);
-    expect(result.errors[0].rowIndex).toBe(1);
+    expect(result.errors).toHaveLength(0);
+    expect(result.dataset).not.toBeNull();
+    const series = result.dataset?.experiments[0].series[0];
+    expect(series?.time).toHaveLength(0);
+    expect(series?.meta?.droppedPoints).toBe(1);
   });
 });

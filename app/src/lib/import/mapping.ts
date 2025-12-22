@@ -146,18 +146,8 @@ export const applyMappingToDataset = ({
 
   const groupMap = new Map<string, (string | number | null)[][]>();
 
-  normalizedTable.rows.forEach((row, rowIndex) => {
+  normalizedTable.rows.forEach((row) => {
     if (!hasRowContent(row)) {
-      return;
-    }
-    const timeValue = parseNumericCell(row[timeIndex] ?? null);
-    if (timeValue === null) {
-      const timeLabel = headers[timeIndex] ?? "Time";
-      errors.push({
-        rowIndex: rowIndex + 1,
-        column: timeLabel,
-        message: "Time value must be numeric."
-      });
       return;
     }
     const label =
@@ -185,14 +175,13 @@ export const applyMappingToDataset = ({
     const series: Series[] = selection.valueColumnIndices.map((valueIndex) => {
       const time: number[] = [];
       const y: number[] = [];
+      let droppedPoints = 0;
 
       rows.forEach((row) => {
         const timeValue = parseNumericCell(row[timeIndex] ?? null);
-        if (timeValue === null) {
-          return;
-        }
         const value = parseNumericCell(row[valueIndex] ?? null);
-        if (value === null) {
+        if (timeValue === null || value === null) {
+          droppedPoints += 1;
           return;
         }
         time.push(timeValue);
@@ -208,7 +197,8 @@ export const applyMappingToDataset = ({
         y,
         meta: {
           replicateColumn:
-            replicateIndex === -1 ? null : headers[replicateIndex] ?? null
+            replicateIndex === -1 ? null : headers[replicateIndex] ?? null,
+          droppedPoints
         }
       };
     });
