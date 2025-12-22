@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 import { parseFile } from "./lib/import/parseFile";
 import { MappingPanel } from "./components/import/MappingPanel";
+import { ImportValidationReport } from "./components/import/ImportValidationReport";
 import {
   applyMappingToDataset,
   type MappingError,
@@ -9,6 +10,8 @@ import {
   type MappingStats
 } from "./lib/import/mapping";
 import type { AuditEntry, Dataset, RawTable } from "./lib/import/types";
+import type { ValidationReport } from "./lib/import/validation";
+import { generateImportValidationReport } from "./lib/import/validation";
 
 // UI reference draft: design/kinetik-researcher.design-draft.html
 
@@ -187,6 +190,8 @@ function App() {
   });
   const [mappingErrors, setMappingErrors] = useState<MappingError[]>([]);
   const [mappingStats, setMappingStats] = useState<MappingStats | null>(null);
+  const [importReport, setImportReport] = useState<ValidationReport | null>(null);
+  const mappingPanelRef = useRef<HTMLDivElement | null>(null);
 
   const importedExperiments = dataset?.experiments ?? [];
   const sidebarExperiments = useMemo<SidebarExperiment[]>(() => {
@@ -306,6 +311,7 @@ function App() {
     });
     setMappingErrors([]);
     setMappingStats(null);
+    setImportReport(null);
   }, [activeRawTable]);
 
   const handleExperimentToggle = (id: string) => {
@@ -434,6 +440,7 @@ function App() {
       return;
     }
 
+    const report = generateImportValidationReport(result.dataset);
     const mappingEntry = createAuditEntry("MAPPING_APPLIED", {
       timeColumn: result.resolvedColumns.time,
       valueColumns: result.resolvedColumns.values,
@@ -443,9 +450,29 @@ function App() {
       seriesCount: result.stats.seriesCount,
       pointCount: result.stats.pointCount
     });
+    const reportEntry = createAuditEntry("IMPORT_REPORT_GENERATED", {
+      status: report.status,
+      summary: `${report.status} · ${report.counts.experiments} experiments, ${report.counts.series} series, ${report.counts.points} points, ${report.counts.droppedPoints} dropped.`
+    });
 
-    setAuditEntries((prev) => [mappingEntry, ...prev]);
+    setImportReport(report);
+    setAuditEntries((prev) => [reportEntry, mappingEntry, ...prev]);
     setDataset({ ...result.dataset, audit: auditEntries });
+  };
+
+  const handleBackToMapping = () => {
+    setActiveStep("Import & Mapping");
+    window.setTimeout(() => {
+      mappingPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      mappingPanelRef.current?.focus();
+    }, 0);
+  };
+
+  const handleContinueFromValidation = () => {
+    if (!importReport || importReport.status === "broken") {
+      return;
+    }
+    setActiveStep("Questions");
   };
 
   const formatAuditPayload = (entry: AuditEntry): string => {
@@ -476,6 +503,11 @@ function App() {
       const series = typeof payload.seriesCount === "number" ? payload.seriesCount : 0;
       const points = typeof payload.pointCount === "number" ? payload.pointCount : 0;
       return `Mapping applied: ${experiments} experiments, ${series} series, ${points} points.`;
+    }
+    if (entry.type === "IMPORT_REPORT_GENERATED") {
+      const status = typeof payload.status === "string" ? payload.status : "unknown";
+      const summary = typeof payload.summary === "string" ? payload.summary : "";
+      return summary ? `Import report: ${summary}` : `Import report status: ${status}.`;
     }
     return "Audit entry recorded.";
   };
@@ -567,17 +599,29 @@ function App() {
             </div>
           )}
           {activeRawTable && (
-            <MappingPanel
-              table={activeRawTable}
-              fileName={importFileName}
-              selection={mappingSelection}
-              onSelectionChange={setMappingSelection}
-              onApply={handleApplyMapping}
-              errors={mappingErrors}
-              stats={mappingStats}
-            />
+            <div ref={mappingPanelRef} tabIndex={-1} className="mapping-anchor">
+              <MappingPanel
+                table={activeRawTable}
+                fileName={importFileName}
+                selection={mappingSelection}
+                onSelectionChange={setMappingSelection}
+                onApply={handleApplyMapping}
+                errors={mappingErrors}
+                stats={mappingStats}
+              />
+            </div>
           )}
         </div>
+      );
+    }
+
+    if (activeStep === "Validation") {
+      return (
+        <ImportValidationReport
+          report={importReport}
+          onBackToMapping={handleBackToMapping}
+          onContinue={handleContinueFromValidation}
+        />
       );
     }
 
