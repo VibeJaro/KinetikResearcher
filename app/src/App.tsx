@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import "./App.css";
+import { buildDatasetFromRawTable } from "./lib/import/buildDataset";
+import { parseFile } from "./lib/import/parseFile";
+import type { AuditEntry, Dataset, RawTable } from "./lib/import/types";
 
 // UI reference draft: design/kinetik-researcher.design-draft.html
 
 type ExperimentStatus = "clean" | "needs-info" | "fit-done";
 
-type Experiment = {
+type SampleExperiment = {
   id: string;
   name: string;
   substrate: string;
@@ -13,19 +16,20 @@ type Experiment = {
   status: ExperimentStatus;
 };
 
+type SidebarExperiment = {
+  id: string;
+  name: string;
+  subtitle: string;
+  status: ExperimentStatus;
+  source: "imported" | "sample";
+  seriesCount?: number;
+};
+
 type Question = {
   id: string;
   prompt: string;
   options: string[];
   resolved: boolean;
-};
-
-type AuditEntry = {
-  id: string;
-  timestamp: string;
-  actor: "user" | "agent" | "system";
-  action: string;
-  rationale: string;
 };
 
 const steps = [
@@ -37,7 +41,7 @@ const steps = [
   "Report"
 ];
 
-const experiments: Experiment[] = Array.from({ length: 20 }, (_, index) => {
+const sampleExperiments: SampleExperiment[] = Array.from({ length: 20 }, (_, index) => {
   const statusCycle: ExperimentStatus[] = ["clean", "needs-info", "fit-done"];
   const status = statusCycle[index % statusCycle.length];
   return {
@@ -70,7 +74,7 @@ const baseQuestions: Question[] = [
   }
 ];
 
-const initialQuestionsByExperiment = experiments.reduce<Record<string, Question[]>>(
+const initialQuestionsByExperiment = sampleExperiments.reduce<Record<string, Question[]>>(
   (acc, experiment) => {
     acc[experiment.id] = baseQuestions.map((question) => ({ ...question }));
     return acc;
@@ -81,17 +85,19 @@ const initialQuestionsByExperiment = experiments.reduce<Record<string, Question[
 const initialAuditEntries: AuditEntry[] = [
   {
     id: "audit-1",
-    timestamp: "2025-01-05 09:12",
-    actor: "system",
-    action: "Import completed",
-    rationale: "CSV ingested, columns mapped to time/value/metadata."
+    ts: "2025-01-05T09:12:00.000Z",
+    type: "SYSTEM_SEED",
+    payload: {
+      summary: "CSV ingested, columns mapped to time/value/metadata."
+    }
   },
   {
     id: "audit-2",
-    timestamp: "2025-01-05 09:21",
-    actor: "agent",
-    action: "Validation flags generated",
-    rationale: "3 rows missing metadata, 1 outlier in replicate 2."
+    ts: "2025-01-05T09:21:00.000Z",
+    type: "SYSTEM_SEED",
+    payload: {
+      summary: "3 rows missing metadata, 1 outlier in replicate 2."
+    }
   }
 ];
 
@@ -107,20 +113,28 @@ const statusTone: Record<ExperimentStatus, string> = {
   "fit-done": "status-done"
 };
 
-const formatTimestamp = (): string => {
-  const now = new Date();
-  return `${now.toLocaleDateString("en-GB")} ${now.toLocaleTimeString("en-GB", {
+const formatTimestamp = (value: string): string => {
+  const date = new Date(value);
+  if (Number.isNaN(date.valueOf())) {
+    return value;
+  }
+  return `${date.toLocaleDateString("en-GB")} ${date.toLocaleTimeString("en-GB", {
     hour: "2-digit",
     minute: "2-digit"
   })}`;
 };
 
+const createAuditEntry = (type: string, payload: Record<string, unknown>): AuditEntry => ({
+  id: `audit-${Math.random().toString(36).slice(2, 10)}`,
+  ts: new Date().toISOString(),
+  type,
+  payload
+});
+
 function App() {
   const [searchValue, setSearchValue] = useState("");
   const [activeStep, setActiveStep] = useState(steps[0]);
-  const [selectedExperimentIds, setSelectedExperimentIds] = useState<string[]>([
-    experiments[0]?.id ?? ""
-  ]);
+  const [selectedExperimentIds, setSelectedExperimentIds] = useState<string[]>([]);
   const [questionsByExperiment, setQuestionsByExperiment] = useState(
     initialQuestionsByExperiment
   );
@@ -133,15 +147,49 @@ function App() {
     fitDone: true
   });
   const [isAuditOpen, setIsAuditOpen] = useState(true);
+  const [dataset, setDataset] = useState<Dataset | null>(null);
+  const [rawTables, setRawTables] = useState<RawTable[]>([]);
+  const [activeRawTable, setActiveRawTable] = useState<RawTable | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importFileName, setImportFileName] = useState<string | null>(null);
+  const [importFileType, setImportFileType] = useState<string | null>(null);
+  const [availableSheets, setAvailableSheets] = useState<string[]>([]);
+  const [selectedSheet, setSelectedSheet] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const importedExperiments = dataset?.experiments ?? [];
+  const sidebarExperiments = useMemo<SidebarExperiment[]>(() => {
+    if (importedExperiments.length > 0) {
+      return importedExperiments.map((experiment) => ({
+        id: experiment.id,
+        name: experiment.name,
+        subtitle: `${experiment.series.length} series`,
+        status: "clean",
+        source: "imported",
+        seriesCount: experiment.series.length
+      }));
+    }
+
+    return sampleExperiments.map((experiment) => ({
+      id: experiment.id,
+      name: experiment.name,
+      subtitle: `${experiment.substrate} · ${experiment.temperature}`,
+      status: experiment.status,
+      source: "sample"
+    }));
+  }, [importedExperiments]);
 
   const selectedExperiments = useMemo(
-    () => experiments.filter((experiment) => selectedExperimentIds.includes(experiment.id)),
-    [selectedExperimentIds]
+    () =>
+      sidebarExperiments.filter((experiment) =>
+        selectedExperimentIds.includes(experiment.id)
+      ),
+    [selectedExperimentIds, sidebarExperiments]
   );
 
   const filteredExperiments = useMemo(() => {
     const query = searchValue.toLowerCase();
-    return experiments.filter((experiment) => {
+    return sidebarExperiments.filter((experiment) => {
       if (query && !experiment.name.toLowerCase().includes(query)) {
         return false;
       }
@@ -156,7 +204,7 @@ function App() {
       }
       return true;
     });
-  }, [searchValue, filters]);
+  }, [searchValue, filters, sidebarExperiments]);
 
   const activeExperiment = selectedExperiments[0] ?? null;
 
@@ -171,6 +219,34 @@ function App() {
   );
 
   useEffect(() => {
+    if (sidebarExperiments.length === 0) {
+      setSelectedExperimentIds([]);
+      return;
+    }
+    setSelectedExperimentIds((prev) => {
+      const next = prev.filter((id) =>
+        sidebarExperiments.some((experiment) => experiment.id === id)
+      );
+      if (next.length > 0) {
+        return next;
+      }
+      return [sidebarExperiments[0].id];
+    });
+  }, [sidebarExperiments]);
+
+  useEffect(() => {
+    setQuestionsByExperiment((prev) => {
+      const next = { ...prev };
+      sidebarExperiments.forEach((experiment) => {
+        if (!next[experiment.id]) {
+          next[experiment.id] = baseQuestions.map((question) => ({ ...question }));
+        }
+      });
+      return next;
+    });
+  }, [sidebarExperiments]);
+
+  useEffect(() => {
     if (!activeExperiment) {
       setActiveQuestionId(null);
       return;
@@ -181,6 +257,10 @@ function App() {
     setActiveQuestionId(nextQuestion?.id ?? null);
     setSelectedAnswer(null);
   }, [activeExperiment?.id, questionsByExperiment]);
+
+  useEffect(() => {
+    setDataset((prev) => (prev ? { ...prev, audit: auditEntries } : prev));
+  }, [auditEntries]);
 
   const handleExperimentToggle = (id: string) => {
     setSelectedAnswer(null);
@@ -211,13 +291,10 @@ function App() {
     });
 
     setAuditEntries((prev) => [
-      {
-        id: `audit-${prev.length + 1}`,
-        timestamp: formatTimestamp(),
-        actor: "user",
-        action: `Decision applied: ${selectedAnswer}`,
-        rationale: activeQuestion.prompt
-      },
+      createAuditEntry("DECISION_APPLIED", {
+        decision: selectedAnswer,
+        question: activeQuestion.prompt
+      }),
       ...prev
     ]);
 
@@ -228,7 +305,183 @@ function App() {
     setActiveQuestionId(nextUnresolved[0]?.id ?? null);
   };
 
+  const updateDatasetForTable = (
+    table: RawTable,
+    fileName: string,
+    nextAuditEntries: AuditEntry[] = auditEntries
+  ) => {
+    const nextDataset = buildDatasetFromRawTable(table, fileName);
+    setDataset({ ...nextDataset, audit: nextAuditEntries });
+  };
+
+  const handleFileUpload = async (file: File) => {
+    setImportError(null);
+    setImportFileName(file.name);
+    setImportFileType(null);
+    setRawTables([]);
+    setActiveRawTable(null);
+    setAvailableSheets([]);
+    setSelectedSheet(null);
+    const uploadEntry = createAuditEntry("FILE_UPLOADED", {
+      fileName: file.name,
+      fileType: file.name.split(".").pop()?.toLowerCase()
+    });
+
+    try {
+      const result = await parseFile(file);
+      setImportFileType(result.fileType);
+      setRawTables(result.rawTables);
+      setActiveRawTable(result.activeTable);
+      setAvailableSheets(result.sheetNames);
+      setSelectedSheet(result.activeTable.sheetName ?? result.sheetNames[0] ?? null);
+
+      const parsedEntry = createAuditEntry("FILE_PARSED", {
+        fileName: file.name,
+        fileType: result.fileType,
+        sheet: result.activeTable.sheetName ?? "Sheet1"
+      });
+
+      setAuditEntries((prev) => {
+        const nextAuditEntries = [parsedEntry, uploadEntry, ...prev];
+        updateDatasetForTable(result.activeTable, file.name, nextAuditEntries);
+        return nextAuditEntries;
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown parse error.";
+      setImportError(message);
+      const failedEntry = createAuditEntry("FILE_PARSE_FAILED", {
+        fileName: file.name,
+        message
+      });
+      setAuditEntries((prev) => [failedEntry, uploadEntry, ...prev]);
+    }
+  };
+
+  const handleSheetChange = (sheetName: string) => {
+    setSelectedSheet(sheetName);
+    const table = rawTables.find((item) => item.sheetName === sheetName);
+    if (!table || !importFileName) {
+      return;
+    }
+    setActiveRawTable(table);
+    updateDatasetForTable(table, importFileName);
+  };
+
+  const formatAuditPayload = (entry: AuditEntry): string => {
+    const payload = entry.payload as Record<string, unknown>;
+    if (typeof payload.summary === "string") {
+      return payload.summary;
+    }
+    if (entry.type === "FILE_UPLOADED") {
+      const fileName = typeof payload.fileName === "string" ? payload.fileName : "upload";
+      return `File ${fileName} queued for parsing.`;
+    }
+    if (entry.type === "FILE_PARSED") {
+      const fileName = typeof payload.fileName === "string" ? payload.fileName : "file";
+      const sheet = typeof payload.sheet === "string" ? payload.sheet : "sheet";
+      return `Parsed ${fileName} (${sheet}).`;
+    }
+    if (entry.type === "FILE_PARSE_FAILED") {
+      const message = typeof payload.message === "string" ? payload.message : "Parsing failed.";
+      return message;
+    }
+    if (entry.type === "DECISION_APPLIED") {
+      const decision = typeof payload.decision === "string" ? payload.decision : "Applied";
+      return `Decision: ${decision}.`;
+    }
+    return "Audit entry recorded.";
+  };
+
   const renderStepContent = () => {
+    if (activeStep === "Import & Mapping") {
+      return (
+        <div className="import-panel">
+          <div
+            className={`upload-card ${isDragging ? "dragging" : ""}`}
+            onDragOver={(event) => {
+              event.preventDefault();
+              setIsDragging(true);
+            }}
+            onDragLeave={() => setIsDragging(false)}
+            onDrop={(event) => {
+              event.preventDefault();
+              setIsDragging(false);
+              const file = event.dataTransfer.files[0];
+              if (file) {
+                void handleFileUpload(file);
+              }
+            }}
+          >
+            <h3>Import raw data</h3>
+            <p>Drag &amp; drop a .csv or .xlsx file, or choose one to upload.</p>
+            <label className="primary file-picker">
+              Choose file
+              <input
+                type="file"
+                accept=".csv,.xlsx"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) {
+                    void handleFileUpload(file);
+                  }
+                  event.target.value = "";
+                }}
+              />
+            </label>
+            {importFileName && (
+              <p className="meta">Latest file: {importFileName}</p>
+            )}
+          </div>
+          {importError && <div className="inline-error">{importError}</div>}
+          {activeRawTable && (
+            <div className="import-summary">
+              <h4>Parsed preview</h4>
+              <div className="summary-grid">
+                <div>
+                  <p className="meta">File type: {importFileType ?? "Unknown"}</p>
+                  <p className="meta">Rows: {activeRawTable.rows.length}</p>
+                  <p className="meta">Columns: {activeRawTable.headers.length}</p>
+                </div>
+                <div>
+                  <p className="meta">
+                    Sheet: {activeRawTable.sheetName ?? "Sheet1"}
+                  </p>
+                  {availableSheets.length > 1 && (
+                    <label className="sheet-select">
+                      Select sheet
+                      <select
+                        value={selectedSheet ?? ""}
+                        onChange={(event) => handleSheetChange(event.target.value)}
+                      >
+                        {availableSheets.map((sheet) => (
+                          <option key={sheet} value={sheet}>
+                            {sheet}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
+                </div>
+              </div>
+              <div className="headers-preview">
+                <p className="meta">Headers</p>
+                <div className="chip-row">
+                  {activeRawTable.headers.slice(0, 8).map((header, index) => (
+                    <span key={`${header}-${index}`} className="chip">
+                      {header}
+                    </span>
+                  ))}
+                  {activeRawTable.headers.length > 8 && (
+                    <span className="chip">+{activeRawTable.headers.length - 8}</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
     if (selectedExperimentIds.length === 0) {
       return (
         <div className="empty-state">
@@ -244,8 +497,7 @@ function App() {
           {selectedExperiments.map((experiment) => (
             <article key={experiment.id} className="comparison-card">
               <h3>{experiment.name}</h3>
-              <p className="meta">{experiment.substrate}</p>
-              <p className="meta">{experiment.temperature}</p>
+              <p className="meta">{experiment.subtitle}</p>
               <div className="step-card">
                 <h4>{activeStep}</h4>
                 <p>
@@ -327,9 +579,7 @@ function App() {
         <div className="detail-header">
           <div>
             <h2>{activeExperiment.name}</h2>
-            <p className="meta">
-              {activeExperiment.substrate} · {activeExperiment.temperature}
-            </p>
+            <p className="meta">{activeExperiment.subtitle}</p>
           </div>
           <span className={`status-pill ${statusTone[activeExperiment.status]}`}>
             {statusLabel[activeExperiment.status]}
@@ -428,7 +678,9 @@ function App() {
           </div>
           <div className="sidebar-section">
             <div className="section-header">
-              <p className="section-title">Experiments</p>
+              <p className="section-title">
+                {importedExperiments.length > 0 ? "Imported experiments" : "Sample experiments"}
+              </p>
               <span className="badge">Selected {selectedExperimentIds.length}/3</span>
             </div>
             <ul className="experiment-list">
@@ -443,9 +695,7 @@ function App() {
                     >
                       <div>
                         <h4>{experiment.name}</h4>
-                        <p className="meta">
-                          {experiment.substrate} · {experiment.temperature}
-                        </p>
+                        <p className="meta">{experiment.subtitle}</p>
                       </div>
                       <span className={`status-dot ${statusTone[experiment.status]}`}>
                         {statusLabel[experiment.status]}
@@ -455,7 +705,9 @@ function App() {
                 );
               })}
             </ul>
-            <p className="hint">Tip: select up to three experiments to compare.</p>
+            <p className="hint">
+              Tip: select up to three experiments to compare.
+            </p>
           </div>
         </aside>
         <main className="workspace">
@@ -485,11 +737,11 @@ function App() {
               {auditEntries.map((entry) => (
                 <article key={entry.id}>
                   <div className="audit-meta">
-                    <span>{entry.timestamp}</span>
-                    <span className="tag">{entry.actor}</span>
+                    <span>{formatTimestamp(entry.ts)}</span>
+                    <span className="tag">{entry.type}</span>
                   </div>
-                  <h4>{entry.action}</h4>
-                  <p>{entry.rationale}</p>
+                  <h4>{entry.type}</h4>
+                  <p>{formatAuditPayload(entry)}</p>
                 </article>
               ))}
             </div>
