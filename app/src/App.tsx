@@ -1,8 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import "./App.css";
-import { buildDatasetFromRawTable } from "./lib/import/buildDataset";
+import {
+  applyMappingToDataset,
+  buildEffectiveTable,
+  normalizeMappingSelection,
+  suggestMappingSelection,
+  type MappingSelection
+} from "./lib/import/mapping";
 import { parseFile } from "./lib/import/parseFile";
 import type { AuditEntry, Dataset, RawTable } from "./lib/import/types";
+import { MappingPanel } from "./components/import/MappingPanel";
 
 // UI reference draft: design/kinetik-researcher.design-draft.html
 
@@ -156,6 +163,14 @@ function App() {
   const [availableSheets, setAvailableSheets] = useState<string[]>([]);
   const [selectedSheet, setSelectedSheet] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [mappingSelection, setMappingSelection] = useState<MappingSelection>({
+    useFirstRowAsHeader: true,
+    timeColumn: null,
+    valueColumns: [],
+    experimentColumn: null,
+    replicateColumn: null
+  });
+  const [mappingErrors, setMappingErrors] = useState<string[]>([]);
 
   const importedExperiments = dataset?.experiments ?? [];
   const sidebarExperiments = useMemo<SidebarExperiment[]>(() => {
@@ -305,13 +320,10 @@ function App() {
     setActiveQuestionId(nextUnresolved[0]?.id ?? null);
   };
 
-  const updateDatasetForTable = (
-    table: RawTable,
-    fileName: string,
-    nextAuditEntries: AuditEntry[] = auditEntries
-  ) => {
-    const nextDataset = buildDatasetFromRawTable(table, fileName);
-    setDataset({ ...nextDataset, audit: nextAuditEntries });
+  const resetMappingSelection = (table: RawTable) => {
+    const nextSelection = suggestMappingSelection(table, true);
+    setMappingSelection(nextSelection);
+    setMappingErrors([]);
   };
 
   const handleFileUpload = async (file: File) => {
@@ -322,6 +334,7 @@ function App() {
     setActiveRawTable(null);
     setAvailableSheets([]);
     setSelectedSheet(null);
+    setDataset(null);
     const uploadEntry = createAuditEntry("FILE_UPLOADED", {
       fileName: file.name,
       fileType: file.name.split(".").pop()?.toLowerCase()
@@ -334,6 +347,7 @@ function App() {
       setActiveRawTable(result.activeTable);
       setAvailableSheets(result.sheetNames);
       setSelectedSheet(result.activeTable.sheetName ?? result.sheetNames[0] ?? null);
+      resetMappingSelection(result.activeTable);
 
       const parsedEntry = createAuditEntry("FILE_PARSED", {
         fileName: file.name,
@@ -341,11 +355,7 @@ function App() {
         sheet: result.activeTable.sheetName ?? "Sheet1"
       });
 
-      setAuditEntries((prev) => {
-        const nextAuditEntries = [parsedEntry, uploadEntry, ...prev];
-        updateDatasetForTable(result.activeTable, file.name, nextAuditEntries);
-        return nextAuditEntries;
-      });
+      setAuditEntries((prev) => [parsedEntry, uploadEntry, ...prev]);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown parse error.";
       setImportError(message);
@@ -364,7 +374,51 @@ function App() {
       return;
     }
     setActiveRawTable(table);
-    updateDatasetForTable(table, importFileName);
+    resetMappingSelection(table);
+    setDataset(null);
+  };
+
+  const handleMappingChange = (nextSelection: MappingSelection) => {
+    if (!activeRawTable) {
+      setMappingSelection(nextSelection);
+      return;
+    }
+    const headers = buildEffectiveTable(
+      activeRawTable,
+      nextSelection.useFirstRowAsHeader
+    ).headers;
+    setMappingSelection(normalizeMappingSelection(headers, nextSelection));
+    setMappingErrors([]);
+  };
+
+  const handleApplyMapping = () => {
+    if (!activeRawTable) {
+      return;
+    }
+    const result = applyMappingToDataset(
+      activeRawTable,
+      mappingSelection,
+      importFileName ?? undefined
+    );
+    if (result.errors.length > 0) {
+      setMappingErrors(result.errors);
+      return;
+    }
+
+    const entry = createAuditEntry("MAPPING_APPLIED", {
+      timeColumn: mappingSelection.timeColumn,
+      valueColumns: mappingSelection.valueColumns,
+      experimentColumn: mappingSelection.experimentColumn,
+      replicateColumn: mappingSelection.replicateColumn,
+      counts: result.summary
+    });
+
+    setAuditEntries((prev) => {
+      const next = [entry, ...prev];
+      setDataset({ ...result.dataset, audit: next });
+      return next;
+    });
+    setMappingErrors([]);
   };
 
   const formatAuditPayload = (entry: AuditEntry): string => {
@@ -388,6 +442,17 @@ function App() {
     if (entry.type === "DECISION_APPLIED") {
       const decision = typeof payload.decision === "string" ? payload.decision : "Applied";
       return `Decision: ${decision}.`;
+    }
+    if (entry.type === "MAPPING_APPLIED") {
+      const timeColumn = typeof payload.timeColumn === "string" ? payload.timeColumn : "time";
+      const valueColumns = Array.isArray(payload.valueColumns)
+        ? payload.valueColumns.join(", ")
+        : "values";
+      const counts = payload.counts as { experiments?: number; series?: number; points?: number };
+      const experiments = counts?.experiments ?? 0;
+      const series = counts?.series ?? 0;
+      const points = counts?.points ?? 0;
+      return `Mapped ${timeColumn} + ${valueColumns} → ${experiments} experiments, ${series} series, ${points} points.`;
     }
     return "Audit entry recorded.";
   };
@@ -477,6 +542,15 @@ function App() {
                 </div>
               </div>
             </div>
+          )}
+          {activeRawTable && (
+            <MappingPanel
+              rawTable={activeRawTable}
+              mapping={mappingSelection}
+              onMappingChange={handleMappingChange}
+              onApply={handleApplyMapping}
+              errors={mappingErrors}
+            />
           )}
         </div>
       );

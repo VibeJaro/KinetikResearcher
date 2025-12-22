@@ -5,6 +5,6 @@ describe("App", () => {
   it("renders the header and sidebar", () => {
     render(<App />);
     expect(screen.getByText("Kinetik Researcher")).toBeInTheDocument();
-    expect(screen.getByText("Experiments")).toBeInTheDocument();
+    expect(screen.getByText("Sample experiments")).toBeInTheDocument();
   });
 });

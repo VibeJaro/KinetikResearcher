@@ -2,6 +2,10 @@
 
 An AI-supported tool for kinetics.
 
+## Recent updates
+
+- Import & Mapping now includes a column-mapping panel with previews to build experiments and series.
+
 ## Dev commands
 
 The app lives in `app/` and mirrors the UI structure from the design draft at
