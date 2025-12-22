@@ -1,7 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import "./App.css";
-import { buildDatasetFromRawTable } from "./lib/import/buildDataset";
 import { parseFile } from "./lib/import/parseFile";
+import { MappingPanel } from "./components/import/MappingPanel";
+import {
+  applyMappingToDataset,
+  type MappingError,
+  type MappingSelection,
+  type MappingStats
+} from "./lib/import/mapping";
 import type { AuditEntry, Dataset, RawTable } from "./lib/import/types";
 
 // UI reference draft: design/kinetik-researcher.design-draft.html
@@ -131,6 +137,22 @@ const createAuditEntry = (type: string, payload: Record<string, unknown>): Audit
   payload
 });
 
+const createDatasetShell = (
+  fileName: string,
+  createdAt = new Date()
+): Dataset => ({
+  id: `dataset-${Math.random().toString(36).slice(2, 10)}`,
+  name: fileName,
+  createdAt: createdAt.toISOString(),
+  experiments: [],
+  audit: []
+});
+
+const findDefaultTimeColumn = (headers: string[]): number | null => {
+  const index = headers.findIndex((header) => /\b(time|t)\b/i.test(header.trim()));
+  return index >= 0 ? index : null;
+};
+
 function App() {
   const [searchValue, setSearchValue] = useState("");
   const [activeStep, setActiveStep] = useState(steps[0]);
@@ -156,6 +178,15 @@ function App() {
   const [availableSheets, setAvailableSheets] = useState<string[]>([]);
   const [selectedSheet, setSelectedSheet] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [mappingSelection, setMappingSelection] = useState<MappingSelection>({
+    firstRowIsHeader: true,
+    timeColumnIndex: null,
+    valueColumnIndices: [],
+    experimentColumnIndex: null,
+    replicateColumnIndex: null
+  });
+  const [mappingErrors, setMappingErrors] = useState<MappingError[]>([]);
+  const [mappingStats, setMappingStats] = useState<MappingStats | null>(null);
 
   const importedExperiments = dataset?.experiments ?? [];
   const sidebarExperiments = useMemo<SidebarExperiment[]>(() => {
@@ -262,6 +293,21 @@ function App() {
     setDataset((prev) => (prev ? { ...prev, audit: auditEntries } : prev));
   }, [auditEntries]);
 
+  useEffect(() => {
+    if (!activeRawTable) {
+      return;
+    }
+    setMappingSelection({
+      firstRowIsHeader: true,
+      timeColumnIndex: findDefaultTimeColumn(activeRawTable.headers),
+      valueColumnIndices: [],
+      experimentColumnIndex: null,
+      replicateColumnIndex: null
+    });
+    setMappingErrors([]);
+    setMappingStats(null);
+  }, [activeRawTable]);
+
   const handleExperimentToggle = (id: string) => {
     setSelectedAnswer(null);
     if (selectedExperimentIds.includes(id)) {
@@ -305,15 +351,6 @@ function App() {
     setActiveQuestionId(nextUnresolved[0]?.id ?? null);
   };
 
-  const updateDatasetForTable = (
-    table: RawTable,
-    fileName: string,
-    nextAuditEntries: AuditEntry[] = auditEntries
-  ) => {
-    const nextDataset = buildDatasetFromRawTable(table, fileName);
-    setDataset({ ...nextDataset, audit: nextAuditEntries });
-  };
-
   const handleFileUpload = async (file: File) => {
     setImportError(null);
     setImportFileName(file.name);
@@ -343,7 +380,13 @@ function App() {
 
       setAuditEntries((prev) => {
         const nextAuditEntries = [parsedEntry, uploadEntry, ...prev];
-        updateDatasetForTable(result.activeTable, file.name, nextAuditEntries);
+        setDataset((current) => {
+          if (current) {
+            return { ...current, experiments: [], name: file.name, audit: nextAuditEntries };
+          }
+          const shell = createDatasetShell(file.name);
+          return { ...shell, audit: nextAuditEntries };
+        });
         return nextAuditEntries;
       });
     } catch (error) {
@@ -364,7 +407,45 @@ function App() {
       return;
     }
     setActiveRawTable(table);
-    updateDatasetForTable(table, importFileName);
+    setDataset((current) => {
+      if (!current) {
+        return createDatasetShell(importFileName);
+      }
+      return { ...current, experiments: [] };
+    });
+  };
+
+  const handleApplyMapping = () => {
+    if (!activeRawTable || !importFileName) {
+      return;
+    }
+    const result = applyMappingToDataset({
+      table: activeRawTable,
+      selection: mappingSelection,
+      fileName: importFileName,
+      datasetId: dataset?.id,
+      createdAt: dataset?.createdAt
+    });
+
+    setMappingErrors(result.errors);
+    setMappingStats(result.dataset ? result.stats : null);
+
+    if (!result.dataset || !result.resolvedColumns) {
+      return;
+    }
+
+    const mappingEntry = createAuditEntry("MAPPING_APPLIED", {
+      timeColumn: result.resolvedColumns.time,
+      valueColumns: result.resolvedColumns.values,
+      experimentColumn: result.resolvedColumns.experiment,
+      replicateColumn: result.resolvedColumns.replicate,
+      experimentCount: result.stats.experimentCount,
+      seriesCount: result.stats.seriesCount,
+      pointCount: result.stats.pointCount
+    });
+
+    setAuditEntries((prev) => [mappingEntry, ...prev]);
+    setDataset({ ...result.dataset, audit: auditEntries });
   };
 
   const formatAuditPayload = (entry: AuditEntry): string => {
@@ -388,6 +469,13 @@ function App() {
     if (entry.type === "DECISION_APPLIED") {
       const decision = typeof payload.decision === "string" ? payload.decision : "Applied";
       return `Decision: ${decision}.`;
+    }
+    if (entry.type === "MAPPING_APPLIED") {
+      const experiments =
+        typeof payload.experimentCount === "number" ? payload.experimentCount : 0;
+      const series = typeof payload.seriesCount === "number" ? payload.seriesCount : 0;
+      const points = typeof payload.pointCount === "number" ? payload.pointCount : 0;
+      return `Mapping applied: ${experiments} experiments, ${series} series, ${points} points.`;
     }
     return "Audit entry recorded.";
   };
@@ -477,6 +565,17 @@ function App() {
                 </div>
               </div>
             </div>
+          )}
+          {activeRawTable && (
+            <MappingPanel
+              table={activeRawTable}
+              fileName={importFileName}
+              selection={mappingSelection}
+              onSelectionChange={setMappingSelection}
+              onApply={handleApplyMapping}
+              errors={mappingErrors}
+              stats={mappingStats}
+            />
           )}
         </div>
       );
