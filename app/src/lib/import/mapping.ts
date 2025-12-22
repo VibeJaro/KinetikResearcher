@@ -185,14 +185,17 @@ export const applyMappingToDataset = ({
     const series: Series[] = selection.valueColumnIndices.map((valueIndex) => {
       const time: number[] = [];
       const y: number[] = [];
+      let droppedPoints = 0;
 
       rows.forEach((row) => {
         const timeValue = parseNumericCell(row[timeIndex] ?? null);
         if (timeValue === null) {
+          droppedPoints += 1;
           return;
         }
         const value = parseNumericCell(row[valueIndex] ?? null);
         if (value === null) {
+          droppedPoints += 1;
           return;
         }
         time.push(timeValue);
@@ -207,6 +210,7 @@ export const applyMappingToDataset = ({
         time,
         y,
         meta: {
+          droppedPoints,
           replicateColumn:
             replicateIndex === -1 ? null : headers[replicateIndex] ?? null
         }
