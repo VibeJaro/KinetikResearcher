@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 import { parseFile } from "./lib/import/parseFile";
 import { MappingPanel } from "./components/import/MappingPanel";
-import { ImportValidationReport } from "./components/import/ImportValidationReport";
+import { ValidationScreen } from "./components/validation/ValidationScreen";
 import {
   applyMappingToDataset,
   type MappingError,
@@ -731,7 +731,8 @@ function App() {
 
     if (activeStep === "Validation") {
       return (
-        <ImportValidationReport
+        <ValidationScreen
+          dataset={dataset}
           report={importReport}
           onBackToMapping={handleBackToMapping}
           onContinue={handleContinueFromValidation}

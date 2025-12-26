@@ -3,7 +3,13 @@ import type { RawTable } from "./types";
 const numericPattern = /^-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?$/;
 
 const sanitizeText = (text: string): string =>
-  text.replace(/^\uFEFF/, "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  text
+    .replace(/^\uFEFF/, "")
+    .replace(/\\r\\n/g, "\n")
+    .replace(/\\r/g, "\n")
+    .replace(/\\n/g, "\n")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n");
 
 const detectDelimiter = (headerLine: string): string => {
   const commaCount = (headerLine.match(/,/g) ?? []).length;

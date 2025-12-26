@@ -9,6 +9,7 @@ import {
   checkTimeNotMonotonic,
   checkTooFewPoints
 } from "../lib/import/validation";
+import { normalizeTimeToSeconds, type TimeColumnType } from "../lib/import/time";
 
 const buildSeries = (overrides: Partial<Series> = {}): Series => ({
   id: "series-1",
@@ -71,6 +72,25 @@ describe("import validation checks", () => {
     const finding = checkConstantSignal(series, experiment);
     expect(finding?.code).toBe("CONSTANT_SIGNAL");
     expect(finding?.severity).toBe("info");
+  });
+
+  it("keeps parsed numeric time values when normalizing to seconds", () => {
+    const parsedTime = [0.25, 1.5, 2.75];
+    const normalized = normalizeTimeToSeconds({
+      time: parsedTime,
+      timeType: "numeric" satisfies TimeColumnType
+    });
+    expect(normalized).toEqual(parsedTime);
+  });
+
+  it("normalizes datetime timestamps to relative seconds", () => {
+    const base = Date.parse("2024-01-01T00:00:00Z");
+    const timestamps = [base, base + 1000, base + 3500];
+    const normalized = normalizeTimeToSeconds({
+      time: timestamps,
+      timeType: "datetime"
+    });
+    expect(normalized).toEqual([0, 1, 3.5]);
   });
 
   it("flags datasets with no experiments", () => {

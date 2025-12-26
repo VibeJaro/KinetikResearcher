@@ -1,4 +1,5 @@
 import type { Dataset, Experiment, RawTable, Series } from "./types";
+import { detectTimeType } from "./time";
 
 export type MappingSelection = {
   firstRowIsHeader: boolean;
@@ -204,6 +205,8 @@ export const applyMappingToDataset = ({
 
       pointCount += time.length;
 
+      const timeType = detectTimeType(time);
+
       return {
         id: createId("series"),
         name: headers[valueIndex] ?? `Series ${valueIndex + 1}`,
@@ -211,6 +214,7 @@ export const applyMappingToDataset = ({
         y,
         meta: {
           droppedPoints,
+          timeType,
           replicateColumn:
             replicateIndex === -1 ? null : headers[replicateIndex] ?? null
         }
