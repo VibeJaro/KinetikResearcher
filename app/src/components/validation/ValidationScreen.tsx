@@ -242,9 +242,9 @@ const renderSeriesPlot = (seriesViews: SeriesView[]) => {
                   key={`${series.id}-pt-${index}`}
                   cx={scaleX(t)}
                   cy={scaleY(series.y[index])}
-                  r={3}
-                  fill="#ffffff"
-                  stroke={series.color}
+                  r={4}
+                  fill={series.color}
+                  stroke="#ffffff"
                   strokeWidth={1.5}
                 />
               ))}
