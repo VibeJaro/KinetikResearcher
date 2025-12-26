@@ -257,6 +257,31 @@
   border-radius: 10px;
 }
 
+.inline-error .meta {
+  color: #7f1d1d;
+}
+
+.inline-success {
+  border: 1px solid #bbf7d0;
+  background: #f0fdf4;
+  color: #166534;
+  padding: 16px;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.success-title,
+.error-title {
+  margin: 0;
+  font-weight: 600;
+}
+
+.inline-success .meta {
+  color: #166534;
+}
+
 .import-summary {
   border: 1px solid #e2e8f0;
   border-radius: 12px;
@@ -440,7 +465,19 @@
   font-size: 18px;
 }
 
-.validation-findings ul {
+.finding-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.validation-banner {
+  border: 1px solid #fecaca;
+  background: #fff1f2;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.validation-banner ul {
   list-style: none;
   margin: 12px 0 0;
   padding: 0;
@@ -449,20 +486,85 @@
   gap: 10px;
 }
 
-.validation-findings li {
+.banner-item {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.experiment-findings {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.experiment-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px;
+  background: #f8fafc;
+}
+
+.experiment-card header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.experiment-card ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.experiment-card li {
   border: 1px solid #e2e8f0;
   border-radius: 12px;
   padding: 12px;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.finding-main {
   display: flex;
   justify-content: space-between;
   gap: 16px;
   align-items: flex-start;
-  background: #f8fafc;
 }
 
-.finding-title {
-  font-weight: 600;
-  margin-bottom: 4px;
+.finding-header {
+  display: flex;
+  gap: 10px;
+}
+
+.severity-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.hint-text {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: #475569;
+}
+
+.technical-details {
+  border-top: 1px dashed #e2e8f0;
+  padding-top: 8px;
+}
+
+.technical-details summary {
+  cursor: pointer;
+  font-size: 12px;
+  color: #1d4ed8;
 }
 
 .validation-actions {
@@ -504,6 +606,11 @@
 .status-info {
   background: #dbeafe;
   color: #1d4ed8;
+}
+
+.status-neutral {
+  background: #e2e8f0;
+  color: #475569;
 }
 
 .status-danger {
@@ -648,6 +755,17 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 16px;
+}
+
+.comparison-header {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #ffffff;
 }
 
 .comparison-card {

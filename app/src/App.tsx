@@ -15,7 +15,7 @@ import { generateImportValidationReport } from "./lib/import/validation";
 
 // UI reference draft: design/kinetik-researcher.design-draft.html
 
-type ExperimentStatus = "clean" | "needs-info" | "fit-done";
+type ExperimentStatus = "clean" | "needs-info" | "broken" | "fit-done" | "mixed";
 
 type SampleExperiment = {
   id: string;
@@ -113,13 +113,17 @@ const initialAuditEntries: AuditEntry[] = [
 const statusLabel: Record<ExperimentStatus, string> = {
   clean: "Clean",
   "needs-info": "Needs info",
-  "fit-done": "Fit done"
+  broken: "Broken",
+  "fit-done": "Fit done",
+  mixed: "Mixed"
 };
 
 const statusTone: Record<ExperimentStatus, string> = {
   clean: "status-clean",
   "needs-info": "status-warning",
-  "fit-done": "status-done"
+  broken: "status-danger",
+  "fit-done": "status-done",
+  mixed: "status-neutral"
 };
 
 const formatTimestamp = (value: string): string => {
@@ -169,6 +173,7 @@ function App() {
   const [filters, setFilters] = useState({
     clean: true,
     needsInfo: true,
+    broken: true,
     fitDone: true
   });
   const [isAuditOpen, setIsAuditOpen] = useState(true);
@@ -190,17 +195,29 @@ function App() {
   });
   const [mappingErrors, setMappingErrors] = useState<MappingError[]>([]);
   const [mappingStats, setMappingStats] = useState<MappingStats | null>(null);
+  const [mappingSuccess, setMappingSuccess] = useState<MappingStats | null>(null);
+  const [mappingSuccessShown, setMappingSuccessShown] = useState(false);
+  const [lastAppliedSelection, setLastAppliedSelection] =
+    useState<MappingSelection | null>(null);
   const [importReport, setImportReport] = useState<ValidationReport | null>(null);
   const mappingPanelRef = useRef<HTMLDivElement | null>(null);
 
   const importedExperiments = dataset?.experiments ?? [];
+  const experimentStatusMap = useMemo(() => {
+    if (!importReport) {
+      return new Map<string, ExperimentStatus>();
+    }
+    return new Map(
+      importReport.experimentSummaries.map((summary) => [summary.experimentId, summary.status])
+    );
+  }, [importReport]);
   const sidebarExperiments = useMemo<SidebarExperiment[]>(() => {
     if (importedExperiments.length > 0) {
       return importedExperiments.map((experiment) => ({
         id: experiment.id,
         name: experiment.name,
         subtitle: `${experiment.series.length} series`,
-        status: "clean",
+        status: experimentStatusMap.get(experiment.id) ?? "clean",
         source: "imported",
         seriesCount: experiment.series.length
       }));
@@ -213,7 +230,7 @@ function App() {
       status: experiment.status,
       source: "sample"
     }));
-  }, [importedExperiments]);
+  }, [experimentStatusMap, importedExperiments]);
 
   const selectedExperiments = useMemo(
     () =>
@@ -235,12 +252,26 @@ function App() {
       if (!filters.needsInfo && experiment.status === "needs-info") {
         return false;
       }
+      if (!filters.broken && experiment.status === "broken") {
+        return false;
+      }
       if (!filters.fitDone && experiment.status === "fit-done") {
         return false;
       }
       return true;
     });
   }, [searchValue, filters, sidebarExperiments]);
+
+  const selectedStatusSummary = useMemo<ExperimentStatus | null>(() => {
+    if (selectedExperiments.length === 0) {
+      return null;
+    }
+    const statuses = new Set(selectedExperiments.map((experiment) => experiment.status));
+    if (statuses.size === 1) {
+      return selectedExperiments[0].status;
+    }
+    return "mixed";
+  }, [selectedExperiments]);
 
   const activeExperiment = selectedExperiments[0] ?? null;
 
@@ -311,20 +342,81 @@ function App() {
     });
     setMappingErrors([]);
     setMappingStats(null);
+    setMappingSuccess(null);
+    setMappingSuccessShown(false);
+    setLastAppliedSelection(null);
     setImportReport(null);
   }, [activeRawTable]);
+
+  useEffect(() => {
+    if (!mappingSuccess || mappingSuccessShown) {
+      return;
+    }
+    setAuditEntries((prev) => [
+      createAuditEntry("MAPPING_SUCCESS_SHOWN", {
+        experimentCount: mappingSuccess.experimentCount,
+        seriesCount: mappingSuccess.seriesCount,
+        pointCount: mappingSuccess.pointCount
+      }),
+      ...prev
+    ]);
+    setMappingSuccessShown(true);
+  }, [mappingSuccess, mappingSuccessShown]);
+
+  const isSameSelection = (
+    current: MappingSelection,
+    last: MappingSelection | null
+  ): boolean => {
+    if (!last) {
+      return false;
+    }
+    return (
+      current.firstRowIsHeader === last.firstRowIsHeader &&
+      current.timeColumnIndex === last.timeColumnIndex &&
+      current.experimentColumnIndex === last.experimentColumnIndex &&
+      current.replicateColumnIndex === last.replicateColumnIndex &&
+      current.valueColumnIndices.length === last.valueColumnIndices.length &&
+      current.valueColumnIndices.every((value, index) => value === last.valueColumnIndices[index])
+    );
+  };
+
+  const handleMappingSelectionChange = (next: MappingSelection) => {
+    setMappingSelection(next);
+    setMappingErrors([]);
+    setMappingStats(null);
+    if (mappingSuccess && !isSameSelection(next, lastAppliedSelection)) {
+      setMappingSuccess(null);
+      setMappingSuccessShown(false);
+      setLastAppliedSelection(null);
+    }
+  };
+
+  const scrollToExperimentCard = (experimentId: string) => {
+    if (activeStep !== "Validation") {
+      return;
+    }
+    window.setTimeout(() => {
+      const element = document.getElementById(`validation-experiment-${experimentId}`);
+      if (element instanceof HTMLElement) {
+        element.scrollIntoView({ behavior: "smooth", block: "start" });
+        element.focus();
+      }
+    }, 0);
+  };
 
   const handleExperimentToggle = (id: string) => {
     setSelectedAnswer(null);
     if (selectedExperimentIds.includes(id)) {
       const next = selectedExperimentIds.filter((selectedId) => selectedId !== id);
       setSelectedExperimentIds(next);
+      scrollToExperimentCard(id);
       return;
     }
     if (selectedExperimentIds.length >= 3) {
       return;
     }
     setSelectedExperimentIds([...selectedExperimentIds, id]);
+    scrollToExperimentCard(id);
   };
 
   const handleAnswerApply = () => {
@@ -365,6 +457,9 @@ function App() {
     setActiveRawTable(null);
     setAvailableSheets([]);
     setSelectedSheet(null);
+    setMappingSuccess(null);
+    setMappingSuccessShown(false);
+    setLastAppliedSelection(null);
     const uploadEntry = createAuditEntry("FILE_UPLOADED", {
       fileName: file.name,
       fileType: file.name.split(".").pop()?.toLowerCase()
@@ -435,6 +530,8 @@ function App() {
 
     setMappingErrors(result.errors);
     setMappingStats(result.dataset ? result.stats : null);
+    setMappingSuccess(null);
+    setMappingSuccessShown(false);
 
     if (!result.dataset || !result.resolvedColumns) {
       return;
@@ -458,6 +555,8 @@ function App() {
     setImportReport(report);
     setAuditEntries((prev) => [reportEntry, mappingEntry, ...prev]);
     setDataset({ ...result.dataset, audit: auditEntries });
+    setMappingSuccess(result.stats);
+    setLastAppliedSelection(mappingSelection);
   };
 
   const handleBackToMapping = () => {
@@ -472,7 +571,14 @@ function App() {
     if (!importReport || importReport.status === "broken") {
       return;
     }
+    if (selectedExperiments.some((experiment) => experiment.status === "broken")) {
+      return;
+    }
     setActiveStep("Questions");
+  };
+
+  const handleContinueToValidation = () => {
+    setActiveStep("Validation");
   };
 
   const formatAuditPayload = (entry: AuditEntry): string => {
@@ -508,6 +614,12 @@ function App() {
       const status = typeof payload.status === "string" ? payload.status : "unknown";
       const summary = typeof payload.summary === "string" ? payload.summary : "";
       return summary ? `Import report: ${summary}` : `Import report status: ${status}.`;
+    }
+    if (entry.type === "MAPPING_SUCCESS_SHOWN") {
+      const experiments =
+        typeof payload.experimentCount === "number" ? payload.experimentCount : 0;
+      const series = typeof payload.seriesCount === "number" ? payload.seriesCount : 0;
+      return `Mapping success message shown (${experiments} experiments, ${series} series).`;
     }
     return "Audit entry recorded.";
   };
@@ -604,10 +716,12 @@ function App() {
                 table={activeRawTable}
                 fileName={importFileName}
                 selection={mappingSelection}
-                onSelectionChange={setMappingSelection}
+                onSelectionChange={handleMappingSelectionChange}
                 onApply={handleApplyMapping}
                 errors={mappingErrors}
                 stats={mappingStats}
+                successStats={mappingSuccess}
+                onContinueToValidation={handleContinueToValidation}
               />
             </div>
           )}
@@ -621,6 +735,10 @@ function App() {
           report={importReport}
           onBackToMapping={handleBackToMapping}
           onContinue={handleContinueFromValidation}
+          disableContinue={
+            Boolean(importReport?.status === "broken") ||
+            selectedExperiments.some((experiment) => experiment.status === "broken")
+          }
         />
       );
     }
@@ -637,6 +755,17 @@ function App() {
     if (selectedExperimentIds.length > 1) {
       return (
         <div className="comparison-grid">
+          {selectedStatusSummary && (
+            <div className="comparison-header">
+              <div>
+                <h3>Selected experiments</h3>
+                <p className="meta">Compare progress across the active selection.</p>
+              </div>
+              <span className={`status-pill ${statusTone[selectedStatusSummary]}`}>
+                {statusLabel[selectedStatusSummary]}
+              </span>
+            </div>
+          )}
           {selectedExperiments.map((experiment) => (
             <article key={experiment.id} className="comparison-card">
               <h3>{experiment.name}</h3>
@@ -807,6 +936,16 @@ function App() {
                 }
               />
               Needs info
+            </label>
+            <label className="toggle">
+              <input
+                type="checkbox"
+                checked={filters.broken}
+                onChange={(event) =>
+                  setFilters((prev) => ({ ...prev, broken: event.target.checked }))
+                }
+              />
+              Broken
             </label>
             <label className="toggle">
               <input
