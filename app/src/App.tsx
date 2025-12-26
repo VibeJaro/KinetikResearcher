@@ -2,16 +2,16 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 import { parseFile } from "./lib/import/parseFile";
 import { MappingPanel } from "./components/import/MappingPanel";
-import { ImportValidationReport } from "./components/import/ImportValidationReport";
 import {
   applyMappingToDataset,
   type MappingError,
   type MappingSelection,
   type MappingStats
 } from "./lib/import/mapping";
-import type { AuditEntry, Dataset, RawTable } from "./lib/import/types";
+import type { AuditEntry, Dataset, RawTable, TimeUnit } from "./lib/import/types";
 import type { ValidationReport } from "./lib/import/validation";
 import { generateImportValidationReport } from "./lib/import/validation";
+import { ValidationScreen } from "./components/validation/ValidationScreen";
 
 // UI reference draft: design/kinetik-researcher.design-draft.html
 
@@ -199,6 +199,7 @@ function App() {
   const [mappingSuccessShown, setMappingSuccessShown] = useState(false);
   const [lastAppliedSelection, setLastAppliedSelection] =
     useState<MappingSelection | null>(null);
+  const [selectedTimeUnit, setSelectedTimeUnit] = useState<TimeUnit>("seconds");
   const [importReport, setImportReport] = useState<ValidationReport | null>(null);
   const mappingPanelRef = useRef<HTMLDivElement | null>(null);
 
@@ -460,6 +461,7 @@ function App() {
     setMappingSuccess(null);
     setMappingSuccessShown(false);
     setLastAppliedSelection(null);
+    setSelectedTimeUnit("seconds");
     const uploadEntry = createAuditEntry("FILE_UPLOADED", {
       fileName: file.name,
       fileType: file.name.split(".").pop()?.toLowerCase()
@@ -731,12 +733,15 @@ function App() {
 
     if (activeStep === "Validation") {
       return (
-        <ImportValidationReport
+        <ValidationScreen
+          dataset={dataset}
           report={importReport}
+          selectedTimeUnit={selectedTimeUnit}
+          onTimeUnitChange={setSelectedTimeUnit}
           onBackToMapping={handleBackToMapping}
           onContinue={handleContinueFromValidation}
           disableContinue={
-            Boolean(importReport?.status === "broken") ||
+            Boolean(!importReport || importReport.status === "broken") ||
             selectedExperiments.some((experiment) => experiment.status === "broken")
           }
         />

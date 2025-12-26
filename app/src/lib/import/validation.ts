@@ -7,6 +7,8 @@ export type ValidationStatus = "clean" | "needs-info" | "broken";
 export type ValidationCode =
   | "TIME_NOT_MONOTONIC"
   | "TIME_DUPLICATES"
+  | "TIME_NOT_INTERPRETABLE"
+  | "POSSIBLE_EXCEL_TIME"
   | "TOO_FEW_POINTS"
   | "NAN_OR_NONNUMERIC"
   | "NEGATIVE_VALUES"
@@ -82,6 +84,54 @@ const computeStandardDeviation = (values: number[]): number => {
   const variance =
     values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / values.length;
   return Math.sqrt(variance);
+};
+
+export const checkTimeInterpretability = (
+  series: Series,
+  experiment: Experiment
+): ValidationFinding | null => {
+  const detectedType = series.meta?.timeInfo?.detectedType;
+  if (!detectedType || detectedType === "invalid") {
+    return createSeriesFinding(series, experiment, {
+      code: "TIME_NOT_INTERPRETABLE",
+      severity: "error",
+      title: "Time column not interpretable",
+      description:
+        "Time values could not be interpreted as numeric durations or timestamps. Kinetic validation cannot proceed without a valid time axis.",
+      hint: "Check the time column for mixed formats or non-date strings and re-import."
+    });
+  }
+  return null;
+};
+
+export const checkPossibleExcelTime = (
+  series: Series,
+  experiment: Experiment
+): ValidationFinding | null => {
+  const rawValues = series.meta?.timeInfo?.rawValues ?? series.time;
+  const hasExcelLikeValues = rawValues.some((value) => {
+    if (typeof value !== "number") {
+      return false;
+    }
+    if (!Number.isFinite(value)) {
+      return false;
+    }
+    const absoluteValue = Math.abs(value);
+    const fractionalPart = Math.abs(value % 1);
+    return absoluteValue > 1e4 && fractionalPart > 0;
+  });
+
+  if (hasExcelLikeValues) {
+    return createSeriesFinding(series, experiment, {
+      code: "POSSIBLE_EXCEL_TIME",
+      severity: "warn",
+      title: "Time values may be Excel dates",
+      description:
+        "Large numeric time values with fractions were detected and could be Excel date serials. Validation currently treats them using the chosen time unit.",
+      hint: "If these are calendar dates, switch to datetime handling or convert them before import."
+    });
+  }
+  return null;
 };
 
 export const checkTimeNotMonotonic = (
@@ -233,6 +283,8 @@ export const getSeriesFindings = (
   experiment: Experiment
 ): ValidationFinding[] => {
   const findings = [
+    checkTimeInterpretability(series, experiment),
+    checkPossibleExcelTime(series, experiment),
     checkTimeNotMonotonic(series, experiment),
     checkTimeDuplicates(series, experiment),
     checkTooFewPoints(series, experiment),
@@ -274,7 +326,7 @@ export const getValidationCounts = (dataset: Dataset): ValidationCounts => {
   };
 };
 
-const resolveStatus = (findings: ValidationFinding[]): ValidationStatus => {
+export const resolveStatus = (findings: ValidationFinding[]): ValidationStatus => {
   if (findings.some((finding) => finding.severity === "error")) {
     return "broken";
   }

@@ -98,6 +98,29 @@ const hasRowContent = (row: (string | number | null)[]): boolean =>
     return cell.trim().length > 0;
   });
 
+const parseTimeCell = (
+  value: string | number | null
+): { kind: "numeric" | "datetime" | "invalid"; numericValue: number | null } => {
+  if (value === null) {
+    return { kind: "invalid", numericValue: null };
+  }
+  if (typeof value === "number") {
+    if (Number.isFinite(value)) {
+      return { kind: "numeric", numericValue: value };
+    }
+    return { kind: "invalid", numericValue: null };
+  }
+  const numeric = parseNumericCell(value);
+  if (numeric !== null) {
+    return { kind: "numeric", numericValue: numeric };
+  }
+  const parsedDate = new Date(value);
+  if (!Number.isNaN(parsedDate.valueOf())) {
+    return { kind: "datetime", numericValue: parsedDate.getTime() };
+  }
+  return { kind: "invalid", numericValue: null };
+};
+
 export const applyMappingToDataset = ({
   table,
   selection,
@@ -146,18 +169,8 @@ export const applyMappingToDataset = ({
 
   const groupMap = new Map<string, (string | number | null)[][]>();
 
-  normalizedTable.rows.forEach((row, rowIndex) => {
+  normalizedTable.rows.forEach((row) => {
     if (!hasRowContent(row)) {
-      return;
-    }
-    const timeValue = parseNumericCell(row[timeIndex] ?? null);
-    if (timeValue === null) {
-      const timeLabel = headers[timeIndex] ?? "Time";
-      errors.push({
-        rowIndex: rowIndex + 1,
-        column: timeLabel,
-        message: "Time value must be numeric."
-      });
       return;
     }
     const label =
@@ -169,15 +182,6 @@ export const applyMappingToDataset = ({
     groupMap.set(label, group);
   });
 
-  if (errors.length > 0) {
-    return {
-      dataset: null,
-      errors,
-      stats: { experimentCount: 0, seriesCount: 0, pointCount: 0 },
-      resolvedColumns: null
-    };
-  }
-
   const experiments: Experiment[] = [];
   let pointCount = 0;
 
@@ -186,10 +190,14 @@ export const applyMappingToDataset = ({
       const time: number[] = [];
       const y: number[] = [];
       let droppedPoints = 0;
+      let invalidTimeCount = 0;
+      const rawTimeValues: (number | string | Date | null)[] = [];
+      const timeKinds = new Set<"numeric" | "datetime">();
 
       rows.forEach((row) => {
-        const timeValue = parseNumericCell(row[timeIndex] ?? null);
-        if (timeValue === null) {
+        const parsedTime = parseTimeCell(row[timeIndex] ?? null);
+        if (parsedTime.kind === "invalid" || parsedTime.numericValue === null) {
+          invalidTimeCount += 1;
           droppedPoints += 1;
           return;
         }
@@ -198,9 +206,18 @@ export const applyMappingToDataset = ({
           droppedPoints += 1;
           return;
         }
-        time.push(timeValue);
+        time.push(parsedTime.numericValue);
+        rawTimeValues.push(row[timeIndex] ?? null);
         y.push(value);
+        timeKinds.add(parsedTime.kind);
       });
+
+      const detectedType =
+        timeKinds.size === 0
+          ? "invalid"
+          : timeKinds.size === 1
+            ? Array.from(timeKinds)[0]
+            : "invalid";
 
       pointCount += time.length;
 
@@ -211,6 +228,12 @@ export const applyMappingToDataset = ({
         y,
         meta: {
           droppedPoints,
+          timeInfo: {
+            rawValues: rawTimeValues,
+            detectedType,
+            declaredUnit: null,
+            invalidCount: invalidTimeCount
+          },
           replicateColumn:
             replicateIndex === -1 ? null : headers[replicateIndex] ?? null
         }

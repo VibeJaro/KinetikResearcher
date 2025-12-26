@@ -9,3 +9,6 @@
 - Warnungen und Fehler sind nun in verständlicher Sprache formuliert und pro Experiment gruppiert, inklusive optionaler technischer Details.
 - Die Experiment-Statusanzeigen im Sidebar spiegeln Warnungen und Fehler korrekt wider und unterscheiden zwischen sauber, Hinweisbedarf und kritisch.
 - Dataset-weite Fehler werden separat angezeigt, ohne einzelne Experimente pauschal zu blockieren.
+- Die Validierung zeigt nun pro Experiment ein Plot (y vs. t), verdichtete QC-Metriken (Punkte, Zeitspanne, Δt, Monotonie, verworfene Zeilen) und die bekannten Findings mit Status-Indikator.
+- Eine globale Auswahl der Zeiteinheit (Sekunden, Minuten, Stunden, Tage) steuert die Normalisierung numerischer Zeiten auf Sekunden; Datums-/Zeitstempel werden relativ zu t0 berechnet, und potenzielle Excel-Serien werden als Hinweis markiert.
+- Die Status-Zusammenfassung (clean / needs-info / broken) sowie der Weiter-Button respektieren nun den Validierungszustand aus den Findings, sodass fehlerhafte Datensätze nicht versehentlich fortgesetzt werden.

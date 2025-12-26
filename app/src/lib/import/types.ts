@@ -4,12 +4,25 @@ export type RawTable = {
   rows: (string | number | null)[][];
 };
 
+export type TimeUnit = "seconds" | "minutes" | "hours" | "days";
+
+export type TimeInfo = {
+  rawValues: (number | string | Date | null)[];
+  detectedType: "numeric" | "datetime" | "invalid";
+  declaredUnit?: TimeUnit | null;
+  invalidCount?: number;
+};
+
 export type Series = {
   id: string;
   name: string;
   time: number[];
   y: number[];
-  meta?: Record<string, unknown>;
+  meta?: {
+    droppedPoints?: number;
+    replicateColumn?: string | null;
+    timeInfo?: TimeInfo;
+  };
 };
 
 export type Experiment = {
