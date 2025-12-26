@@ -16,7 +16,16 @@ export type ValidationCode =
 export type ValidationFinding = {
   code: ValidationCode;
   severity: ValidationSeverity;
-  message: string;
+  title: string;
+  description: string;
+  hint?: string;
+  details?: {
+    droppedPoints?: number;
+    duplicateCount?: number;
+    negativeCount?: number;
+    pointCount?: number;
+    timeIssueCount?: number;
+  };
   experimentId?: string;
   experimentName?: string;
   seriesId?: string;
@@ -33,7 +42,13 @@ export type ValidationCounts = {
 export type ValidationReport = {
   status: ValidationStatus;
   counts: ValidationCounts;
-  findings: ValidationFinding[];
+  datasetFindings: ValidationFinding[];
+  experimentSummaries: {
+    experimentId: string;
+    experimentName: string;
+    status: ValidationStatus;
+    findings: ValidationFinding[];
+  }[];
 };
 
 const createSeriesFinding = (
@@ -73,14 +88,24 @@ export const checkTimeNotMonotonic = (
   series: Series,
   experiment: Experiment
 ): ValidationFinding | null => {
+  let issueCount = 0;
   for (let index = 1; index < series.time.length; index += 1) {
     if (series.time[index] <= series.time[index - 1]) {
-      return createSeriesFinding(series, experiment, {
-        code: "TIME_NOT_MONOTONIC",
-        severity: "error",
-        message: "Time values are not strictly increasing."
-      });
+      issueCount += 1;
     }
+  }
+  if (issueCount > 0) {
+    return createSeriesFinding(series, experiment, {
+      code: "TIME_NOT_MONOTONIC",
+      severity: "error",
+      title: "Time values go backwards",
+      description:
+        "The time column is not strictly increasing at least once. This breaks kinetic analysis and must be fixed.",
+      hint: "Sort or correct the time values so they only increase.",
+      details: {
+        timeIssueCount: issueCount
+      }
+    });
   }
   return null;
 };
@@ -94,7 +119,13 @@ export const checkTimeDuplicates = (
     return createSeriesFinding(series, experiment, {
       code: "TIME_DUPLICATES",
       severity: "warn",
-      message: "Duplicate time points detected."
+      title: "Duplicate time points",
+      description:
+        "Some time values repeat within the series. This can confuse downstream fitting and rate calculations.",
+      hint: "Remove duplicates or average repeated points before importing.",
+      details: {
+        duplicateCount: series.time.length - unique.size
+      }
     });
   }
   return null;
@@ -108,7 +139,13 @@ export const checkTooFewPoints = (
     return createSeriesFinding(series, experiment, {
       code: "TOO_FEW_POINTS",
       severity: "warn",
-      message: "Fewer than five time points are available."
+      title: "Too few time points",
+      description:
+        "This series has very few measurements. Most kinetic models need more points to fit reliably.",
+      hint: "Consider adding additional time points if possible.",
+      details: {
+        pointCount: series.time.length
+      }
     });
   }
   return null;
@@ -123,7 +160,13 @@ export const checkNanOrNonNumeric = (
     return createSeriesFinding(series, experiment, {
       code: "NAN_OR_NONNUMERIC",
       severity: "warn",
-      message: `${droppedPoints} rows were dropped due to parse issues.`
+      title: "Invalid data points removed",
+      description:
+        "Some rows contained text or empty values where numbers were expected. These rows were ignored during import.",
+      hint: "Review the raw file for missing or non-numeric entries.",
+      details: {
+        droppedPoints
+      }
     });
   }
   return null;
@@ -133,11 +176,18 @@ export const checkNegativeValues = (
   series: Series,
   experiment: Experiment
 ): ValidationFinding | null => {
-  if (series.y.some((value) => value < 0)) {
+  const negativeCount = series.y.filter((value) => value < 0).length;
+  if (negativeCount > 0) {
     return createSeriesFinding(series, experiment, {
       code: "NEGATIVE_VALUES",
       severity: "info",
-      message: "Negative values are present in the signal."
+      title: "Negative values detected",
+      description:
+        "Negative signal values are present. This can be expected after baseline correction, but can also indicate import issues.",
+      hint: "Confirm whether negative values are expected for this assay.",
+      details: {
+        negativeCount
+      }
     });
   }
   return null;
@@ -155,7 +205,10 @@ export const checkConstantSignal = (
     return createSeriesFinding(series, experiment, {
       code: "CONSTANT_SIGNAL",
       severity: "info",
-      message: "Signal is nearly constant across time."
+      title: "Signal is nearly constant",
+      description:
+        "The signal changes very little over time. Fitting will be unreliable without variation.",
+      hint: "Check if this series should be excluded or reprocessed."
     });
   }
   return null;
@@ -166,7 +219,10 @@ export const checkNoExperiments = (dataset: Dataset): ValidationFinding | null =
     return createDatasetFinding({
       code: "NO_EXPERIMENTS",
       severity: "error",
-      message: "No experiments were generated from mapping."
+      title: "No experiments created",
+      description:
+        "Mapping did not produce any experiments. Check that the time and value columns contain data.",
+      hint: "Verify the selected columns and ensure the file has data rows."
     });
   }
   return null;
@@ -188,19 +244,8 @@ export const getSeriesFindings = (
 };
 
 export const getDatasetFindings = (dataset: Dataset): ValidationFinding[] => {
-  const findings: ValidationFinding[] = [];
   const datasetFinding = checkNoExperiments(dataset);
-  if (datasetFinding) {
-    findings.push(datasetFinding);
-  }
-
-  dataset.experiments.forEach((experiment) => {
-    experiment.series.forEach((series) => {
-      findings.push(...getSeriesFindings(series, experiment));
-    });
-  });
-
-  return findings;
+  return datasetFinding ? [datasetFinding] : [];
 };
 
 export const getValidationCounts = (dataset: Dataset): ValidationCounts => {
@@ -240,10 +285,26 @@ const resolveStatus = (findings: ValidationFinding[]): ValidationStatus => {
 };
 
 export const generateImportValidationReport = (dataset: Dataset): ValidationReport => {
-  const findings = getDatasetFindings(dataset);
+  const datasetFindings = getDatasetFindings(dataset);
+  const experimentSummaries = dataset.experiments.map((experiment) => {
+    const findings = experiment.series.flatMap((series) =>
+      getSeriesFindings(series, experiment)
+    );
+    return {
+      experimentId: experiment.id,
+      experimentName: experiment.name,
+      status: resolveStatus(findings),
+      findings
+    };
+  });
+  const findings = [
+    ...datasetFindings,
+    ...experimentSummaries.flatMap((summary) => summary.findings)
+  ];
   return {
     status: resolveStatus(findings),
     counts: getValidationCounts(dataset),
-    findings
+    datasetFindings,
+    experimentSummaries
   };
 };

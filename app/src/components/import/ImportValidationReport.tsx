@@ -18,16 +18,24 @@ const severityTone: Record<string, string> = {
   error: "severity-error"
 };
 
+const severityIcon: Record<string, string> = {
+  info: "ℹ️",
+  warn: "⚠️",
+  error: "⛔"
+};
+
 type ImportValidationReportProps = {
   report: ValidationReport | null;
   onBackToMapping: () => void;
   onContinue: () => void;
+  disableContinue?: boolean;
 };
 
 export const ImportValidationReport = ({
   report,
   onBackToMapping,
-  onContinue
+  onContinue,
+  disableContinue = false
 }: ImportValidationReportProps) => {
   if (!report) {
     return (
@@ -68,30 +76,113 @@ export const ImportValidationReport = ({
         </div>
       </div>
       <div className="validation-findings">
-        <h4>Findings</h4>
-        {report.findings.length === 0 ? (
-          <p className="meta">No issues detected in the imported series.</p>
+        <h4>Findings by experiment</h4>
+        {report.datasetFindings.length > 0 && (
+          <div className="validation-banner">
+            <h5>Dataset-level issues</h5>
+            <ul>
+              {report.datasetFindings.map((finding) => (
+                <li key={finding.code} className="banner-item">
+                  <span className={`severity-icon ${severityTone[finding.severity]}`}>
+                    {severityIcon[finding.severity]}
+                  </span>
+                  <div>
+                    <p className="finding-title">{finding.title}</p>
+                    <p className="meta">{finding.description}</p>
+                    {finding.hint && <p className="hint-text">{finding.hint}</p>}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {report.experimentSummaries.length === 0 ? (
+          <p className="meta">
+            {report.datasetFindings.length > 0
+              ? "No experiments are available to review yet."
+              : "No issues detected in the imported series."}
+          </p>
         ) : (
-          <ul>
-            {report.findings.map((finding, index) => (
-              <li key={`${finding.code}-${index}`}>
-                <div>
-                  <p className="finding-title">
-                    {finding.code.replace(/_/g, " ")}
-                  </p>
-                  <p className="meta">
-                    {finding.message}
-                    {finding.seriesName
-                      ? ` (${finding.seriesName} · ${finding.experimentName ?? ""})`
-                      : ""}
-                  </p>
-                </div>
-                <span className={`severity-pill ${severityTone[finding.severity]}`}>
-                  {finding.severity}
-                </span>
-              </li>
+          <div className="experiment-findings">
+            {report.experimentSummaries.map((summary) => (
+              <article
+                key={summary.experimentId}
+                id={`validation-experiment-${summary.experimentId}`}
+                tabIndex={-1}
+                className="experiment-card"
+              >
+                <header>
+                  <div>
+                    <h5>{summary.experimentName}</h5>
+                    <p className="meta">
+                      {summary.findings.length === 0
+                        ? "No issues detected for this experiment."
+                        : `${summary.findings.length} finding${
+                            summary.findings.length === 1 ? "" : "s"
+                          }`}
+                    </p>
+                  </div>
+                  <span className={`status-pill ${statusTone[summary.status]}`}>
+                    {statusLabel[summary.status]}
+                  </span>
+                </header>
+                {summary.findings.length > 0 && (
+                  <ul>
+                    {summary.findings.map((finding, index) => (
+                      <li key={`${finding.code}-${index}`}>
+                        <div className="finding-main">
+                          <div className="finding-header">
+                            <span
+                              className={`severity-icon ${severityTone[finding.severity]}`}
+                              aria-hidden="true"
+                            >
+                              {severityIcon[finding.severity]}
+                            </span>
+                            <div>
+                              <p className="finding-title">{finding.title}</p>
+                              <p className="meta">{finding.description}</p>
+                              {finding.seriesName && (
+                                <p className="meta">
+                                  Series: {finding.seriesName}
+                                </p>
+                              )}
+                              {finding.hint && (
+                                <p className="hint-text">{finding.hint}</p>
+                              )}
+                            </div>
+                          </div>
+                          <span className={`severity-pill ${severityTone[finding.severity]}`}>
+                            {finding.severity}
+                          </span>
+                        </div>
+                        <details className="technical-details">
+                          <summary>Show technical details</summary>
+                          <div className="meta">
+                            <p>Code: {finding.code}</p>
+                            {finding.details?.droppedPoints !== undefined && (
+                              <p>Dropped points: {finding.details.droppedPoints}</p>
+                            )}
+                            {finding.details?.duplicateCount !== undefined && (
+                              <p>Duplicate points: {finding.details.duplicateCount}</p>
+                            )}
+                            {finding.details?.negativeCount !== undefined && (
+                              <p>Negative values: {finding.details.negativeCount}</p>
+                            )}
+                            {finding.details?.pointCount !== undefined && (
+                              <p>Total points: {finding.details.pointCount}</p>
+                            )}
+                            {finding.details?.timeIssueCount !== undefined && (
+                              <p>Non-increasing steps: {finding.details.timeIssueCount}</p>
+                            )}
+                          </div>
+                        </details>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </article>
             ))}
-          </ul>
+          </div>
         )}
       </div>
       <div className="validation-actions">
@@ -102,7 +193,7 @@ export const ImportValidationReport = ({
           type="button"
           className="primary"
           onClick={onContinue}
-          disabled={report.status === "broken"}
+          disabled={disableContinue}
         >
           Continue
         </button>
