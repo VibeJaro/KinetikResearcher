@@ -228,15 +228,27 @@ const renderSeriesPlot = (seriesViews: SeriesView[]) => {
             .map((t, index) => `${scaleX(t)},${scaleY(series.y[index])}`)
             .join(" ");
           return (
-            <polyline
-              key={series.id}
-              points={pointString}
-              fill="none"
-              stroke={series.color}
-              strokeWidth={2}
-              strokeLinejoin="round"
-              strokeLinecap="round"
-            />
+            <g key={series.id}>
+              <polyline
+                points={pointString}
+                fill="none"
+                stroke={series.color}
+                strokeWidth={2}
+                strokeLinejoin="round"
+                strokeLinecap="round"
+              />
+              {series.tSeconds.map((t, index) => (
+                <circle
+                  key={`${series.id}-pt-${index}`}
+                  cx={scaleX(t)}
+                  cy={scaleY(series.y[index])}
+                  r={3}
+                  fill="#ffffff"
+                  stroke={series.color}
+                  strokeWidth={1.5}
+                />
+              ))}
+            </g>
           );
         })}
       </svg>
