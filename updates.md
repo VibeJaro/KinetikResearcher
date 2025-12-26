@@ -5,3 +5,6 @@
 - Beim Anwenden der Zuordnung werden Experimente und Messreihen erstellt, die Eingaben geprüft und im Audit-Log protokolliert.
 - Nach dem Mapping gibt es jetzt einen Validierungsbericht mit Status (sauber, benötigt Infos, kritisch), Kennzahlen und klaren Hinweisen zu möglichen Datenproblemen.
 - Der Bericht zeigt einfache Handlungen: zurück zur Zuordnung oder weiter, solange nichts Kritisches vorliegt.
+- Nach erfolgreicher Zuordnung erscheint eine grüne Erfolgsmeldung mit Experiment- und Serienanzahl sowie einem direkten „Weiter zur Validierung“-Button.
+- Die Validierungswarnungen sind verständlich formuliert, nach Experiment gruppiert und bieten optional technische Details für Power-User.
+- Der Experiment-Status in der linken Seitenleiste spiegelt Warnungen und Fehler wider, und Weiter-Buttons bleiben deaktiviert, wenn ausgewählte Experimente defekt sind.

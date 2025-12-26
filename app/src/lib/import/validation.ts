@@ -16,7 +16,10 @@ export type ValidationCode =
 export type ValidationFinding = {
   code: ValidationCode;
   severity: ValidationSeverity;
-  message: string;
+  title: string;
+  summary: string;
+  hint?: string;
+  technicalDetails?: string;
   experimentId?: string;
   experimentName?: string;
   seriesId?: string;
@@ -78,7 +81,11 @@ export const checkTimeNotMonotonic = (
       return createSeriesFinding(series, experiment, {
         code: "TIME_NOT_MONOTONIC",
         severity: "error",
-        message: "Time values are not strictly increasing."
+        title: "Time values go backwards",
+        summary:
+          "The time column decreases at least once. Kinetic analysis requires time values to increase steadily.",
+        hint: "Sort or correct the time column for this series before continuing.",
+        technicalDetails: "Code: TIME_NOT_MONOTONIC"
       });
     }
   }
@@ -94,7 +101,11 @@ export const checkTimeDuplicates = (
     return createSeriesFinding(series, experiment, {
       code: "TIME_DUPLICATES",
       severity: "warn",
-      message: "Duplicate time points detected."
+      title: "Duplicate time points",
+      summary:
+        "Two or more rows share the same time value. This can distort fits or averaging.",
+      hint: "Consider averaging duplicates or removing extra rows.",
+      technicalDetails: "Code: TIME_DUPLICATES"
     });
   }
   return null;
@@ -108,7 +119,11 @@ export const checkTooFewPoints = (
     return createSeriesFinding(series, experiment, {
       code: "TOO_FEW_POINTS",
       severity: "warn",
-      message: "Fewer than five time points are available."
+      title: "Too few time points",
+      summary:
+        "This series contains fewer than five measurements, which limits kinetic fitting.",
+      hint: "Collect more points or treat this series as qualitative.",
+      technicalDetails: `Code: TOO_FEW_POINTS · Points: ${series.time.length}`
     });
   }
   return null;
@@ -123,7 +138,11 @@ export const checkNanOrNonNumeric = (
     return createSeriesFinding(series, experiment, {
       code: "NAN_OR_NONNUMERIC",
       severity: "warn",
-      message: `${droppedPoints} rows were dropped due to parse issues.`
+      title: "Invalid data points removed",
+      summary:
+        "Some rows contained text or empty values where numbers were expected. These rows were ignored during import.",
+      hint: "Check the original file to ensure numeric values in time and signal columns.",
+      technicalDetails: `Code: NAN_OR_NONNUMERIC · Dropped rows: ${droppedPoints}`
     });
   }
   return null;
@@ -137,7 +156,11 @@ export const checkNegativeValues = (
     return createSeriesFinding(series, experiment, {
       code: "NEGATIVE_VALUES",
       severity: "info",
-      message: "Negative values are present in the signal."
+      title: "Negative signal values",
+      summary:
+        "Some signal values are below zero. This can be normal depending on baseline correction.",
+      hint: "Confirm whether negative values are expected or if baseline needs adjustment.",
+      technicalDetails: "Code: NEGATIVE_VALUES"
     });
   }
   return null;
@@ -155,7 +178,11 @@ export const checkConstantSignal = (
     return createSeriesFinding(series, experiment, {
       code: "CONSTANT_SIGNAL",
       severity: "info",
-      message: "Signal is nearly constant across time."
+      title: "Signal is nearly constant",
+      summary:
+        "The signal changes very little over time, which may indicate no reaction or measurement issues.",
+      hint: "Verify that the signal should change for this experiment.",
+      technicalDetails: "Code: CONSTANT_SIGNAL"
     });
   }
   return null;
@@ -166,7 +193,10 @@ export const checkNoExperiments = (dataset: Dataset): ValidationFinding | null =
     return createDatasetFinding({
       code: "NO_EXPERIMENTS",
       severity: "error",
-      message: "No experiments were generated from mapping."
+      title: "No experiments created",
+      summary: "The mapping did not produce any experiments from the uploaded file.",
+      hint: "Review the experiment column or ensure rows contain data.",
+      technicalDetails: "Code: NO_EXPERIMENTS"
     });
   }
   return null;
@@ -229,7 +259,9 @@ export const getValidationCounts = (dataset: Dataset): ValidationCounts => {
   };
 };
 
-const resolveStatus = (findings: ValidationFinding[]): ValidationStatus => {
+export const resolveValidationStatus = (
+  findings: ValidationFinding[]
+): ValidationStatus => {
   if (findings.some((finding) => finding.severity === "error")) {
     return "broken";
   }
@@ -242,7 +274,7 @@ const resolveStatus = (findings: ValidationFinding[]): ValidationStatus => {
 export const generateImportValidationReport = (dataset: Dataset): ValidationReport => {
   const findings = getDatasetFindings(dataset);
   return {
-    status: resolveStatus(findings),
+    status: resolveValidationStatus(findings),
     counts: getValidationCounts(dataset),
     findings
   };

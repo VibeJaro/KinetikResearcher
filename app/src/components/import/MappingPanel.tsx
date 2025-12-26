@@ -13,8 +13,10 @@ type MappingPanelProps = {
   selection: MappingSelection;
   onSelectionChange: (next: MappingSelection) => void;
   onApply: () => void;
+  onContinueToValidation: () => void;
   errors: MappingError[];
   stats: MappingStats | null;
+  successStats: MappingStats | null;
 };
 
 export const MappingPanel = ({
@@ -23,8 +25,10 @@ export const MappingPanel = ({
   selection,
   onSelectionChange,
   onApply,
+  onContinueToValidation,
   errors,
-  stats
+  stats,
+  successStats
 }: MappingPanelProps) => {
   const normalizedTable = normalizeMappingTable(table, selection.firstRowIsHeader);
   const headers = normalizedTable.headers;
@@ -157,9 +161,24 @@ export const MappingPanel = ({
 
       <MappingPreviewTable table={normalizedTable} highlightedColumns={highlightedColumns} />
 
+      {successStats && (
+        <div className="inline-success">
+          <div>
+            <strong>Mapping applied successfully.</strong>
+            <p className="meta">
+              {successStats.experimentCount} experiments and {successStats.seriesCount}{" "}
+              time series were created.
+            </p>
+          </div>
+          <button type="button" className="primary" onClick={onContinueToValidation}>
+            Continue to Validation
+          </button>
+        </div>
+      )}
+
       {errors.length > 0 && (
         <div className="inline-error">
-          <p>Mapping errors:</p>
+          <p>Mapping could not be applied. Fix the issues below and try again.</p>
           <ul>
             {errors.slice(0, 3).map((error) => (
               <li key={`${error.column}-${error.rowIndex}`}>

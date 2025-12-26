@@ -257,6 +257,18 @@
   border-radius: 10px;
 }
 
+.inline-success {
+  border: 1px solid #bbf7d0;
+  background: #f0fdf4;
+  color: #166534;
+  padding: 12px;
+  border-radius: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
 .import-summary {
   border: 1px solid #e2e8f0;
   border-radius: 12px;
@@ -410,6 +422,11 @@
   outline-offset: 6px;
 }
 
+.validation-anchor:focus {
+  outline: 2px solid #1d4ed8;
+  outline-offset: 6px;
+}
+
 .validation-report {
   border: 1px solid #e2e8f0;
   border-radius: 16px;
@@ -440,16 +457,16 @@
   font-size: 18px;
 }
 
-.validation-findings ul {
+.experiment-card ul {
   list-style: none;
-  margin: 12px 0 0;
+  margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
 
-.validation-findings li {
+.experiment-card li {
   border: 1px solid #e2e8f0;
   border-radius: 12px;
   padding: 12px;
@@ -458,6 +475,97 @@
   gap: 16px;
   align-items: flex-start;
   background: #f8fafc;
+}
+
+.dataset-banner {
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dataset-banner ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dataset-banner li {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.experiment-findings {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.experiment-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.experiment-card.selected {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.experiment-card header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.experiment-card ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.finding-main {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.finding-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.technical-details {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #ffffff;
+  border: 1px dashed #cbd5f5;
+}
+
+.severity-icon {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  margin-top: 4px;
+  flex-shrink: 0;
 }
 
 .finding-title {
@@ -549,6 +657,11 @@
   border-radius: 8px;
   padding: 8px 14px;
   cursor: pointer;
+}
+
+.ghost.tiny {
+  padding: 4px 8px;
+  font-size: 11px;
 }
 
 .questions-view {
