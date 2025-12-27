@@ -23,7 +23,9 @@ import {
 } from "./lib/grouping/helpers";
 import type {
   ColumnScanResult,
+  ExtractedFactor,
   FactorExtractionResult,
+  FactorProvenance,
   GroupingRecipe,
   GroupingRecipeGroup
 } from "./lib/grouping/types";
@@ -745,19 +747,31 @@ function App() {
         );
       }
       const result = payload.result ?? payload;
-      const normalizedExperiments = (result.experiments as any[]).map((experiment) => {
+      const normalizedExperiments = (result.experiments as any[]).map((experiment: any) => {
         const factors = Array.isArray(experiment.factors) ? experiment.factors : [];
-        const normalizedFactors = factors.map((factor: any) => ({
-          name: factor.name,
-          value: factor.value ?? null,
-          confidence: factor.confidence ?? "low",
-          provenance: Array.isArray(factor.provenance)
-            ? factor.provenance.filter(Boolean).map((item) => ({
+        const normalizedFactors: ExtractedFactor[] = factors.map(
+          (factor: {
+            name: string;
+            value?: string | number | null;
+            confidence?: string;
+            provenance?: unknown;
+          }) => {
+            const rawProvenance = Array.isArray(factor.provenance) ? factor.provenance : [];
+            const normalizedProvenance: FactorProvenance[] = rawProvenance
+              .filter((entry) => Boolean(entry))
+              .map((item: any) => ({
                 column: item?.column ?? "unknown",
                 rawValueSnippet: item?.rawValueSnippet ?? ""
-              }))
-            : []
-        }));
+              }));
+
+            return {
+              name: factor.name,
+              value: factor.value ?? null,
+              confidence: (factor.confidence as ExtractedFactor["confidence"]) ?? "low",
+              provenance: normalizedProvenance
+            };
+          }
+        );
         return { ...experiment, factors: normalizedFactors };
       });
       const factorNames = Array.from(
