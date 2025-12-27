@@ -16,6 +16,15 @@ export type Experiment = {
   id: string;
   name: string;
   raw?: unknown;
+  metaRaw: Record<string, string | number | null>;
+  metaConsistency?: Record<
+    string,
+    {
+      consistent: boolean;
+      strategy: "most-frequent" | "first-non-null";
+      uniqueValueCount: number;
+    }
+  >;
   series: Series[];
 };
 
@@ -32,4 +41,11 @@ export type Dataset = {
   createdAt: string;
   experiments: Experiment[];
   audit: AuditEntry[];
+  groups?: Array<{
+    groupId: string;
+    name: string;
+    experimentIds: string[];
+    signature: Record<string, string | number | null>;
+    createdFromRecipe?: string;
+  }>;
 };

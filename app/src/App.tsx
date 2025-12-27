@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
+import "./styles/grouping.css";
 import { parseFile } from "./lib/import/parseFile";
 import { MappingPanel } from "./components/import/MappingPanel";
 import { ValidationScreen } from "./components/validation/ValidationScreen";
@@ -12,6 +13,7 @@ import {
 import type { AuditEntry, Dataset, RawTable } from "./lib/import/types";
 import type { ValidationReport } from "./lib/import/validation";
 import { generateImportValidationReport } from "./lib/import/validation";
+import { GroupingScreen } from "./components/grouping/GroupingScreen";
 
 // UI reference draft: design/kinetik-researcher.design-draft.html
 
@@ -44,6 +46,7 @@ type Question = {
 const steps = [
   "Import & Mapping",
   "Validation",
+  "Grouping",
   "Questions",
   "Modeling",
   "Diagnostics",
@@ -574,7 +577,7 @@ function App() {
     if (selectedExperiments.some((experiment) => experiment.status === "broken")) {
       return;
     }
-    setActiveStep("Questions");
+    setActiveStep("Grouping");
   };
 
   const handleContinueToValidation = () => {
@@ -753,7 +756,7 @@ function App() {
       );
     }
 
-    if (selectedExperimentIds.length > 1) {
+    if (activeStep !== "Grouping" && selectedExperimentIds.length > 1) {
       return (
         <div className="comparison-grid">
           {selectedStatusSummary && (
@@ -791,6 +794,21 @@ function App() {
 
     if (!activeExperiment) {
       return null;
+    }
+
+    if (activeStep === "Grouping") {
+      return (
+        <GroupingScreen
+          dataset={dataset}
+          onContinue={(groups) => {
+            setDataset((prev) => (prev ? { ...prev, groups } : prev));
+            setActiveStep("Questions");
+          }}
+          onAudit={({ type, payload }) =>
+            setAuditEntries((prev) => [createAuditEntry(type, payload ?? {}), ...prev])
+          }
+        />
+      );
     }
 
     if (activeStep === "Questions") {

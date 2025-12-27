@@ -1,0 +1,133 @@
+.grouping-screen {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.grouping-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.stage-indicator {
+  display: flex;
+  gap: 8px;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.stage-indicator span.active {
+  color: #1d4ed8;
+  font-weight: 600;
+}
+
+.grouping-section {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.option-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.option-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.option-card.active {
+  border-color: #1d4ed8;
+  background: #eff6ff;
+}
+
+.manual-editor {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) 2fr;
+  gap: 16px;
+}
+
+.group-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.group-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px;
+  background: #f8fafc;
+}
+
+.factor-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.factor-table th,
+.factor-table td {
+  border: 1px solid #e2e8f0;
+  padding: 8px;
+  font-size: 12px;
+}
+
+.factor-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.factor-value {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.provenance ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.disclaimer {
+  margin: 0;
+  font-size: 12px;
+  color: #475569;
+}
+
+.inline-warning {
+  border: 1px solid #fef3c7;
+  background: #fffbeb;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.card {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px;
+  background: #f8fafc;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}

@@ -9,3 +9,4 @@
 - Warnungen und Fehler sind nun in verständlicher Sprache formuliert und pro Experiment gruppiert, inklusive optionaler technischer Details.
 - Die Experiment-Statusanzeigen im Sidebar spiegeln Warnungen und Fehler korrekt wider und unterscheiden zwischen sauber, Hinweisbedarf und kritisch.
 - Dataset-weite Fehler werden separat angezeigt, ohne einzelne Experimente pauschal zu blockieren.
+- Neuer Schritt „Grouping“ nach der Validierung: LLM-gestützte Spaltenerkennung, Faktorextraktion mit Provenance/Confidence, deterministische Gruppenvorschläge und ein manueller Group Editor mit Audit-Events.

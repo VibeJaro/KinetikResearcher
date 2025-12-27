@@ -139,6 +139,15 @@ export const applyMappingToDataset = ({
   const timeIndex = selection.timeColumnIndex ?? -1;
   const experimentIndex = selection.experimentColumnIndex ?? -1;
   const replicateIndex = selection.replicateColumnIndex ?? -1;
+  const metadataIndices = headers
+    .map((_, index) => index)
+    .filter(
+      (index) =>
+        index !== timeIndex &&
+        index !== experimentIndex &&
+        index !== replicateIndex &&
+        !selection.valueColumnIndices.includes(index)
+    );
 
   const experimentName =
     selection.experimentColumnIndex === null
@@ -183,6 +192,63 @@ export const applyMappingToDataset = ({
   let pointCount = 0;
 
   Array.from(groupMap.entries()).forEach(([groupName, rows]) => {
+    const metaRaw: Record<string, string | number | null> = {};
+    const metaConsistency: Experiment["metaConsistency"] = {};
+
+    metadataIndices.forEach((index) => {
+      const header = headers[index] ?? `Column ${index + 1}`;
+      const values = rows
+        .map((row) => row[index] ?? null)
+        .map((value) => {
+          if (typeof value === "string") {
+            const trimmed = value.trim();
+            return trimmed.length === 0 ? null : trimmed;
+          }
+          return value;
+        });
+
+      const nonNullValues = values.filter(
+        (value): value is string | number => value !== null && value !== ""
+      );
+
+      if (nonNullValues.length === 0) {
+        metaRaw[header] = null;
+        metaConsistency[header] = {
+          consistent: true,
+          strategy: "first-non-null",
+          uniqueValueCount: 0
+        };
+        return;
+      }
+
+      const frequency = new Map<string | number, number>();
+      nonNullValues.forEach((value) => {
+        const count = frequency.get(value) ?? 0;
+        frequency.set(value, count + 1);
+      });
+
+      let selectedValue: string | number = nonNullValues[0];
+      let strategy: "most-frequent" | "first-non-null" = "first-non-null";
+
+      const sorted = Array.from(frequency.entries()).sort(
+        (a, b) => b[1] - a[1]
+      );
+
+      if (sorted[0]) {
+        const [value, count] = sorted[0];
+        const hasClearWinner = sorted.length === 1 || count > sorted[1][1];
+        selectedValue = value;
+        strategy = hasClearWinner ? "most-frequent" : "first-non-null";
+      }
+
+      metaRaw[header] = selectedValue;
+      metaConsistency[header] = {
+        consistent: new Set(nonNullValues).size === 1,
+        strategy,
+        uniqueValueCount: new Set(nonNullValues).size
+      };
+    });
+
     const series: Series[] = selection.valueColumnIndices.map((valueIndex) => {
       const time: number[] = [];
       const y: number[] = [];
@@ -235,6 +301,8 @@ export const applyMappingToDataset = ({
           replicateIndex === -1 ? null : headers[replicateIndex] ?? null,
         sheetName: normalizedTable.sheetName
       },
+      metaRaw,
+      metaConsistency,
       series
     });
   });
