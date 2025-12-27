@@ -145,6 +145,17 @@ export const applyMappingToDataset = ({
       ? fileName || "Experiment 1"
       : null;
 
+  const selectedValueIndices = new Set(selection.valueColumnIndices);
+  const metaColumnIndices = headers
+    .map((_, index) => index)
+    .filter(
+      (index) =>
+        index !== timeIndex &&
+        index !== experimentIndex &&
+        index !== replicateIndex &&
+        !selectedValueIndices.has(index)
+    );
+
   const groupMap = new Map<string, (string | number | null)[][]>();
 
   normalizedTable.rows.forEach((row, rowIndex) => {
@@ -221,6 +232,53 @@ export const applyMappingToDataset = ({
       };
     });
 
+    const metaRaw: Record<string, string | number | null> = {};
+    const metaConsistency: Record<string, "consistent" | "varied"> = {};
+
+    metaColumnIndices.forEach((metaIndex) => {
+      const columnName = headers[metaIndex] ?? `Column ${metaIndex + 1}`;
+      const values = rows
+        .map((row) => row[metaIndex] ?? null)
+        .filter((value) => value !== undefined) as (string | number | null)[];
+      const normalizedValues = values
+        .map((value) => {
+          if (value === null) {
+            return null;
+          }
+          if (typeof value === "number") {
+            return Number.isNaN(value) ? null : value;
+          }
+          const trimmed = value.trim();
+          if (!trimmed) {
+            return null;
+          }
+          const parsed = parseNumericCell(trimmed);
+          return parsed ?? trimmed;
+        })
+        .filter((value) => value !== null) as (string | number)[];
+
+      if (normalizedValues.length === 0) {
+        metaRaw[columnName] = null;
+        metaConsistency[columnName] = "consistent";
+        return;
+      }
+
+      const counts = normalizedValues.reduce<Record<string, number>>((acc, value) => {
+        const key = typeof value === "number" ? value.toString() : value;
+        acc[key] = (acc[key] ?? 0) + 1;
+        return acc;
+      }, {});
+      const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+      const mostFrequentKey = sorted[0]?.[0];
+      const mostFrequentValue =
+        normalizedValues.find((value) =>
+          typeof value === "number" ? value.toString() === mostFrequentKey : value === mostFrequentKey
+        ) ?? normalizedValues[0];
+      const uniqueValues = new Set(normalizedValues);
+      metaRaw[columnName] = mostFrequentValue ?? normalizedValues[0] ?? null;
+      metaConsistency[columnName] = uniqueValues.size > 1 ? "varied" : "consistent";
+    });
+
     experiments.push({
       id: createId("exp"),
       name: groupName,
@@ -235,7 +293,11 @@ export const applyMappingToDataset = ({
           replicateIndex === -1 ? null : headers[replicateIndex] ?? null,
         sheetName: normalizedTable.sheetName
       },
-      series
+      series,
+      meta: {
+        metaRaw,
+        metaConsistency
+      }
     });
   });
 

@@ -12,11 +12,17 @@ export type Series = {
   meta?: Record<string, unknown>;
 };
 
+export type ExperimentMeta = {
+  metaRaw: Record<string, string | number | null>;
+  metaConsistency: Record<string, "consistent" | "varied">;
+};
+
 export type Experiment = {
   id: string;
   name: string;
   raw?: unknown;
   series: Series[];
+  meta?: ExperimentMeta;
 };
 
 export type AuditEntry = {
@@ -32,4 +38,11 @@ export type Dataset = {
   createdAt: string;
   experiments: Experiment[];
   audit: AuditEntry[];
+  groups?: Array<{
+    groupId: string;
+    name: string;
+    experimentIds: string[];
+    signature: Record<string, string | number | null>;
+    createdFromRecipe: string | null;
+  }>;
 };

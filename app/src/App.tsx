@@ -1,3 +1,4 @@
+import type React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 import { parseFile } from "./lib/import/parseFile";
@@ -12,6 +13,20 @@ import {
 import type { AuditEntry, Dataset, RawTable } from "./lib/import/types";
 import type { ValidationReport } from "./lib/import/validation";
 import { generateImportValidationReport } from "./lib/import/validation";
+import { GroupingScreen, type GroupingState } from "./components/grouping/GroupingScreen";
+import {
+  attachExperimentMetaDefaults,
+  buildGroupingOptions,
+  deriveManualGroupSignatures,
+  summarizeMetadataColumns,
+  toManualGroupsFromRecipe
+} from "./lib/grouping/helpers";
+import type {
+  ColumnScanResult,
+  FactorExtractionResult,
+  GroupingRecipe,
+  GroupingRecipeGroup
+} from "./lib/grouping/types";
 
 // UI reference draft: design/kinetik-researcher.design-draft.html
 
@@ -44,6 +59,7 @@ type Question = {
 const steps = [
   "Import & Mapping",
   "Validation",
+  "Grouping",
   "Questions",
   "Modeling",
   "Diagnostics",
@@ -144,6 +160,14 @@ const createAuditEntry = (type: string, payload: Record<string, unknown>): Audit
   payload
 });
 
+const logAudit = (
+  setter: React.Dispatch<React.SetStateAction<AuditEntry[]>>,
+  type: string,
+  payload: Record<string, unknown>
+) => {
+  setter((prev) => [createAuditEntry(type, payload), ...prev]);
+};
+
 const createDatasetShell = (
   fileName: string,
   createdAt = new Date()
@@ -158,6 +182,21 @@ const createDatasetShell = (
 const findDefaultTimeColumn = (headers: string[]): number | null => {
   const index = headers.findIndex((header) => /\b(time|t)\b/i.test(header.trim()));
   return index >= 0 ? index : null;
+};
+
+const initialGroupingState: GroupingState = {
+  includeCommentColumns: false,
+  selectedColumns: [],
+  columnScanResult: null,
+  columnScanLoading: false,
+  factorExtractionResult: null,
+  factorExtractionLoading: false,
+  factorOverrides: {},
+  groupingOptions: [],
+  selectedGroupingOptionId: null,
+  manualGroups: [],
+  notes: undefined,
+  uncertainties: []
 };
 
 function App() {
@@ -201,6 +240,7 @@ function App() {
     useState<MappingSelection | null>(null);
   const [importReport, setImportReport] = useState<ValidationReport | null>(null);
   const mappingPanelRef = useRef<HTMLDivElement | null>(null);
+  const [groupingState, setGroupingState] = useState<GroupingState>(initialGroupingState);
 
   const importedExperiments = dataset?.experiments ?? [];
   const experimentStatusMap = useMemo(() => {
@@ -328,6 +368,13 @@ function App() {
   useEffect(() => {
     setDataset((prev) => (prev ? { ...prev, audit: auditEntries } : prev));
   }, [auditEntries]);
+
+  useEffect(() => {
+    setGroupingState((prev) => ({
+      ...initialGroupingState,
+      includeCommentColumns: prev.includeCommentColumns
+    }));
+  }, [dataset?.id]);
 
   useEffect(() => {
     if (!activeRawTable) {
@@ -554,7 +601,11 @@ function App() {
 
     setImportReport(report);
     setAuditEntries((prev) => [reportEntry, mappingEntry, ...prev]);
-    setDataset({ ...result.dataset, audit: auditEntries });
+    setDataset({
+      ...result.dataset,
+      experiments: attachExperimentMetaDefaults(result.dataset.experiments),
+      audit: auditEntries
+    });
     setMappingSuccess(result.stats);
     setLastAppliedSelection(mappingSelection);
   };
@@ -574,12 +625,315 @@ function App() {
     if (selectedExperiments.some((experiment) => experiment.status === "broken")) {
       return;
     }
-    setActiveStep("Questions");
+    setActiveStep("Grouping");
   };
 
   const handleContinueToValidation = () => {
     setActiveStep("Validation");
   };
+
+  const handleRunColumnScan = async () => {
+    if (!dataset) {
+      return;
+    }
+    const summaries = summarizeMetadataColumns(dataset);
+    setGroupingState((prev) => ({ ...prev, columnScanLoading: true }));
+    logAudit(setAuditEntries, "LLM_COLUMN_SCAN_REQUESTED", {
+      columnCount: summaries.length,
+      experimentCount: dataset.experiments.length
+    });
+    try {
+      const response = await fetch("/api/column-scan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          columns: summaries,
+          experimentCount: dataset.experiments.length,
+          knownStructuralColumns: ["experimentId", "time", "signal"]
+        })
+      });
+      const payload = await response.json();
+      const result = (payload.result ?? payload) as ColumnScanResult;
+      const filteredSelection = (result.selectedColumns ?? []).filter(
+        (column) =>
+          groupingState.includeCommentColumns || result.columnRoles?.[column] !== "comment"
+      );
+      setGroupingState((prev) => ({
+        ...prev,
+        columnScanResult: result,
+        columnScanLoading: false,
+        selectedColumns: filteredSelection,
+        notes: result.notes,
+        uncertainties: result.uncertainties ?? [],
+        groupingOptions: prev.groupingOptions
+      }));
+      logAudit(setAuditEntries, "LLM_COLUMN_SCAN_COMPLETED", {
+        selectedColumns: filteredSelection.length
+      });
+    } catch (error) {
+      setGroupingState((prev) => ({ ...prev, columnScanLoading: false }));
+      logAudit(setAuditEntries, "LLM_COLUMN_SCAN_COMPLETED", {
+        error: error instanceof Error ? error.message : "Unknown column scan error"
+      });
+    }
+  };
+
+  const handleRunFactorExtraction = async () => {
+    if (!dataset || groupingState.selectedColumns.length === 0) {
+      return;
+    }
+    const factorCandidates =
+      groupingState.columnScanResult?.factorCandidates ?? [
+        "catalyst",
+        "additive",
+        "substrate",
+        "solvent",
+        "temperature",
+        "batch",
+        "note"
+      ];
+    const experimentsPayload = dataset.experiments.map((experiment) => {
+      const meta: Record<string, string | number | null> = {};
+      groupingState.selectedColumns.forEach((column) => {
+        meta[column] = experiment.meta?.metaRaw[column] ?? null;
+      });
+      return { experimentId: experiment.id, meta };
+    });
+
+    setGroupingState((prev) => ({ ...prev, factorExtractionLoading: true }));
+    logAudit(setAuditEntries, "LLM_FACTOR_EXTRACTION_REQUESTED", {
+      experiments: experimentsPayload.length,
+      selectedColumns: groupingState.selectedColumns
+    });
+
+    try {
+      const response = await fetch("/api/factor-extraction", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          factorCandidates,
+          selectedColumns: groupingState.selectedColumns,
+          experiments: experimentsPayload
+        })
+      });
+      const payload = await response.json();
+      const result = payload.result ?? payload;
+      const factorNames = Array.from(
+        new Set(
+          (result.experiments as { factors: { name: string }[] }[]).flatMap((experiment) =>
+            experiment.factors.map((factor) => factor.name)
+          )
+        )
+      );
+      const normalizedResult: FactorExtractionResult = {
+        experiments: result.experiments,
+        factorNames,
+        factorCandidates,
+        selectedColumns: groupingState.selectedColumns
+      };
+      setGroupingState((prev) => ({
+        ...prev,
+        factorExtractionResult: normalizedResult,
+        factorExtractionLoading: false
+      }));
+      logAudit(setAuditEntries, "LLM_FACTOR_EXTRACTION_COMPLETED", {
+        experimentCount: normalizedResult.experiments.length,
+        factorCount: factorNames.length
+      });
+    } catch (error) {
+      setGroupingState((prev) => ({ ...prev, factorExtractionLoading: false }));
+      logAudit(setAuditEntries, "LLM_FACTOR_EXTRACTION_COMPLETED", {
+        error: error instanceof Error ? error.message : "Unknown factor extraction error"
+      });
+    }
+  };
+
+  const persistGroups = (
+    groups: GroupingRecipeGroup[],
+    auditType?: string,
+    payload: Record<string, unknown> = {},
+    createdFromRecipe?: string | null
+  ) => {
+    const enriched = deriveManualGroupSignatures(
+      groups,
+      groupingState.factorExtractionResult,
+      groupingState.factorOverrides
+    );
+    setGroupingState((prev) => ({
+      ...prev,
+      manualGroups: enriched
+    }));
+    setDataset((prev) => {
+      if (!prev) {
+        return prev;
+      }
+      const normalizedGroups = enriched.map((group) => ({
+        groupId: group.groupId,
+        name: group.name ?? group.groupId,
+        experimentIds: group.experimentIds,
+        signature: group.signature,
+        createdFromRecipe:
+          createdFromRecipe ??
+          group.createdFromRecipe ??
+          groupingState.selectedGroupingOptionId ??
+          prev.groups?.find((item) => item.groupId === group.groupId)?.createdFromRecipe ??
+          null
+      }));
+      return { ...prev, groups: normalizedGroups };
+    });
+    if (auditType) {
+      logAudit(setAuditEntries, auditType, payload);
+    }
+  };
+
+  const handleGroupingOptionSelect = (recipe: GroupingRecipe) => {
+    const groups = toManualGroupsFromRecipe(recipe, groupingState.manualGroups);
+    setGroupingState((prev) => ({
+      ...prev,
+      selectedGroupingOptionId: recipe.recipeId
+    }));
+    persistGroups(
+      groups,
+      "GROUPING_OPTION_SELECTED",
+      {
+        recipeId: recipe.recipeId,
+        groupCount: groups.length
+      },
+      recipe.recipeId
+    );
+  };
+
+  const handleAssignExperimentToGroup = (experimentId: string, groupId: string) => {
+    if (!groupId) {
+      return;
+    }
+    const cleared = groupingState.manualGroups.map((group) => ({
+      ...group,
+      experimentIds: group.experimentIds.filter((id) => id !== experimentId)
+    }));
+    const updated = cleared.map((group) =>
+      group.groupId === groupId
+        ? { ...group, experimentIds: [...group.experimentIds, experimentId] }
+        : group
+    );
+    persistGroups(updated, "EXPERIMENT_MOVED_GROUP", { experimentId, groupId });
+  };
+
+  const handleRenameGroup = (groupId: string, name: string) => {
+    const updated = groupingState.manualGroups.map((group) =>
+      group.groupId === groupId ? { ...group, name } : group
+    );
+    persistGroups(updated, "GROUP_RENAMED", { groupId, name });
+  };
+
+  const handleSplitGroup = (groupId: string, experimentId: string) => {
+    const target = groupingState.manualGroups.find((group) => group.groupId === groupId);
+    if (!target) {
+      return;
+    }
+    const rest = groupingState.manualGroups.map((group) => ({
+      ...group,
+      experimentIds: group.experimentIds.filter((id) => id !== experimentId)
+    }));
+    const newGroup: GroupingRecipeGroup = {
+      groupId: `${groupId}-${experimentId}`,
+      name: `${target.name ?? "Group"} split`,
+      experimentIds: [experimentId],
+      signature: target.signature,
+      warning: null,
+      createdFromRecipe: target.createdFromRecipe ?? groupingState.selectedGroupingOptionId ?? null
+    };
+    persistGroups([...rest, newGroup], "GROUP_SPLIT", { groupId, experimentId });
+  };
+
+  const handleMergeGroups = (sourceGroupId: string, targetGroupId: string) => {
+    if (sourceGroupId === targetGroupId) {
+      return;
+    }
+    const source = groupingState.manualGroups.find((group) => group.groupId === sourceGroupId);
+    const target = groupingState.manualGroups.find((group) => group.groupId === targetGroupId);
+    if (!source || !target) {
+      return;
+    }
+    const merged = groupingState.manualGroups
+      .filter((group) => group.groupId !== sourceGroupId)
+      .map((group) =>
+        group.groupId === targetGroupId
+          ? { ...group, experimentIds: [...group.experimentIds, ...source.experimentIds] }
+          : group
+      );
+    persistGroups(merged, "GROUP_MERGED", { sourceGroupId, targetGroupId });
+  };
+
+  const handleFallbackAll = () => {
+    const allGroup: GroupingRecipeGroup[] = [
+      {
+        groupId: "all",
+        name: "All experiments",
+        experimentIds: dataset?.experiments.map((exp) => exp.id) ?? [],
+        signature: {},
+        warning: null,
+        createdFromRecipe: "fallback-all"
+      }
+    ];
+    persistGroups(allGroup);
+  };
+
+  const handleFallbackPerExperiment = () => {
+    const perExperiment: GroupingRecipeGroup[] =
+      dataset?.experiments.map((exp) => ({
+        groupId: `group-${exp.id}`,
+        name: exp.name,
+        experimentIds: [exp.id],
+        signature: {},
+        warning: null,
+        createdFromRecipe: "fallback-per-experiment"
+      })) ?? [];
+    persistGroups(perExperiment);
+  };
+
+  const handleFactorOverride = (
+    experimentId: string,
+    factorName: string,
+    value: string | number | null
+  ) => {
+    setGroupingState((prev) => {
+      const current = prev.factorOverrides[experimentId] ?? {};
+      return {
+        ...prev,
+        factorOverrides: {
+          ...prev.factorOverrides,
+          [experimentId]: { ...current, [factorName]: value }
+        }
+      };
+    });
+    logAudit(setAuditEntries, "FACTOR_OVERRIDDEN_MANUALLY", {
+      experimentId,
+      factor: factorName,
+      value
+    });
+  };
+
+  useEffect(() => {
+    if (!groupingState.factorExtractionResult) {
+      return;
+    }
+    const options = buildGroupingOptions(
+      groupingState.factorExtractionResult,
+      groupingState.factorOverrides
+    );
+    setGroupingState((prev) => ({
+      ...prev,
+      groupingOptions: options
+    }));
+    if (groupingState.manualGroups.length === 0 && options[0]) {
+      handleGroupingOptionSelect(options[0]);
+    }
+  }, [
+    groupingState.factorExtractionResult,
+    groupingState.factorOverrides,
+    groupingState.manualGroups.length
+  ]);
 
   const formatAuditPayload = (entry: AuditEntry): string => {
     const payload = entry.payload as Record<string, unknown>;
@@ -620,6 +974,43 @@ function App() {
         typeof payload.experimentCount === "number" ? payload.experimentCount : 0;
       const series = typeof payload.seriesCount === "number" ? payload.seriesCount : 0;
       return `Mapping success message shown (${experiments} experiments, ${series} series).`;
+    }
+    if (entry.type === "LLM_COLUMN_SCAN_REQUESTED") {
+      return "LLM column scan requested.";
+    }
+    if (entry.type === "LLM_COLUMN_SCAN_COMPLETED") {
+      if (typeof payload.error === "string") {
+        return `Column scan failed: ${payload.error}`;
+      }
+      return `Column scan completed with ${payload.selectedColumns ?? 0} columns.`;
+    }
+    if (entry.type === "LLM_FACTOR_EXTRACTION_REQUESTED") {
+      return "Factor extraction requested.";
+    }
+    if (entry.type === "LLM_FACTOR_EXTRACTION_COMPLETED") {
+      if (typeof payload.error === "string") {
+        return `Factor extraction failed: ${payload.error}`;
+      }
+      return `Factor extraction completed (${payload.factorCount ?? 0} factors).`;
+    }
+    if (entry.type === "GROUPING_OPTION_SELECTED") {
+      const recipe = typeof payload.recipeId === "string" ? payload.recipeId : "recipe";
+      return `Grouping option selected (${recipe}).`;
+    }
+    if (entry.type === "EXPERIMENT_MOVED_GROUP") {
+      return `Experiment ${payload.experimentId ?? ""} moved to ${payload.groupId ?? ""}.`;
+    }
+    if (entry.type === "GROUP_RENAMED") {
+      return `Group ${payload.groupId ?? ""} renamed to ${payload.name ?? ""}.`;
+    }
+    if (entry.type === "GROUP_SPLIT") {
+      return `Experiment ${payload.experimentId ?? ""} split into a new group.`;
+    }
+    if (entry.type === "GROUP_MERGED") {
+      return `Groups ${payload.sourceGroupId ?? ""} merged into ${payload.targetGroupId ?? ""}.`;
+    }
+    if (entry.type === "FACTOR_OVERRIDDEN_MANUALLY") {
+      return `Factor override: ${payload.factor ?? ""} -> ${payload.value ?? ""}`;
     }
     return "Audit entry recorded.";
   };
@@ -740,6 +1131,28 @@ function App() {
             Boolean(importReport?.status === "broken") ||
             selectedExperiments.some((experiment) => experiment.status === "broken")
           }
+        />
+      );
+    }
+
+    if (activeStep === "Grouping") {
+      return (
+        <GroupingScreen
+          dataset={dataset}
+          groupingState={groupingState}
+          onGroupingStateChange={setGroupingState}
+          onRunColumnScan={handleRunColumnScan}
+          onRunFactorExtraction={handleRunFactorExtraction}
+          onSelectGroupingOption={handleGroupingOptionSelect}
+          onAssignExperiment={handleAssignExperimentToGroup}
+          onRenameGroup={handleRenameGroup}
+          onSplitGroup={handleSplitGroup}
+          onMergeGroups={handleMergeGroups}
+          onFallbackAll={handleFallbackAll}
+          onFallbackPerExperiment={handleFallbackPerExperiment}
+          onOverride={handleFactorOverride}
+          onContinue={() => setActiveStep("Questions")}
+          onContinueToModeling={() => setActiveStep("Modeling")}
         />
       );
     }

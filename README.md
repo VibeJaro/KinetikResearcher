@@ -13,6 +13,12 @@ Validation step surfaces an import report with dataset and experiment findings,
 user-facing guidance, and per-experiment statuses powered by
 `app/src/lib/import/validation.ts`.
 
+The Grouping step adds an LLM-assisted workflow to identify metadata columns,
+extract normalized factors, suggest deterministic grouping options, and let the
+user curate the final experiment groups. LLM calls are handled server-side via
+Vercel functions in `/api/column-scan.ts` and `/api/factor-extraction.ts`
+using the `gpt-5.2` model and the `OPENAI_API_KEY` environment variable.
+
 ```bash
 cd app
 npm install
