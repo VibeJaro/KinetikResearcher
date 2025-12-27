@@ -1,5 +1,20 @@
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
 
+const parseContent = (content: string | null | undefined) => {
+  if (!content) {
+    return { ok: false, error: "Empty LLM response", raw: "" };
+  }
+  try {
+    return { ok: true, data: JSON.parse(content) };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Unknown parse error",
+      raw: content.slice(0, 500)
+    };
+  }
+};
+
 export default async function handler(req: any, res: any) {
   if (req.method !== "POST") {
     res.status(405).json({ error: "Method not allowed" });
@@ -13,17 +28,6 @@ export default async function handler(req: any, res: any) {
   }
 
   const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
-
-  const parseContent = (content: string | null | undefined) => {
-    if (!content) {
-      return null;
-    }
-    try {
-      return JSON.parse(content);
-    } catch (error) {
-      return { __raw: content, error: error instanceof Error ? error.message : "Unknown parse error" };
-    }
-  };
 
   try {
     const completion = await fetch(OPENAI_API_URL, {
@@ -39,7 +43,7 @@ export default async function handler(req: any, res: any) {
           {
             role: "system",
             content:
-              "You identify meaningful metadata columns for kinetic experiment grouping. Return strict JSON with keys selectedColumns, columnRoles, factorCandidates, notes, uncertainties."
+              "You extract normalized experiment-level factors from messy metadata. Return strict JSON with experiments[].experimentId, factors[{name,value,confidence,provenance}], warnings[]. Keep provenance snippets short."
           },
           {
             role: "user",
@@ -49,26 +53,21 @@ export default async function handler(req: any, res: any) {
       })
     });
 
-    if (!completion.ok) {
-      const errorText = await completion.text();
-      res.status(500).json({ error: `OpenAI error: ${errorText}` });
-      return;
-    }
-
     const data = await completion.json();
     const content = data.choices?.[0]?.message?.content;
     const parsed = parseContent(content);
-    if (!parsed || parsed.__raw) {
+    if (!parsed.ok) {
       res.status(500).json({
         error: "LLM response was not valid JSON",
-        raw: typeof parsed?.__raw === "string" ? parsed.__raw.slice(0, 500) : content
+        raw: parsed.raw,
+        details: parsed.error
       });
       return;
     }
-    res.status(200).json({ result: parsed });
+    res.status(200).json({ result: parsed.data });
   } catch (error) {
-    res
-      .status(500)
-      .json({ error: error instanceof Error ? error.message : "Unknown column scan error" });
+    res.status(500).json({
+      error: error instanceof Error ? error.message : "Unknown factor extraction error"
+    });
   }
 }

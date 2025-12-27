@@ -653,7 +653,12 @@ function App() {
         })
       });
       const text = await response.text();
-      const payload = JSON.parse(text);
+      let payload: any;
+      try {
+        payload = JSON.parse(text);
+      } catch {
+        throw new Error(`Column scan failed: non-JSON response (${text.slice(0, 120)}…)`);
+      }
       if (!response.ok || payload.error) {
         throw new Error(
           typeof payload.error === "string"
@@ -726,7 +731,12 @@ function App() {
         })
       });
       const text = await response.text();
-      const payload = JSON.parse(text);
+      let payload: any;
+      try {
+        payload = JSON.parse(text);
+      } catch {
+        throw new Error(`Factor extraction failed: non-JSON response (${text.slice(0, 120)}…)`);
+      }
       if (!response.ok || payload.error) {
         throw new Error(
           typeof payload.error === "string"

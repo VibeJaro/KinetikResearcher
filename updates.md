@@ -9,4 +9,4 @@
 - Warnungen und Fehler sind nun in verständlicher Sprache formuliert und pro Experiment gruppiert, inklusive optionaler technischer Details.
 - Die Experiment-Statusanzeigen im Sidebar spiegeln Warnungen und Fehler korrekt wider und unterscheiden zwischen sauber, Hinweisbedarf und kritisch.
 - Dataset-weite Fehler werden separat angezeigt, ohne einzelne Experimente pauschal zu blockieren.
-- Neuer Schritt „Grouping“ nach der Validierung: Spaltenscan via LLM (serverseitig, GPT-5.2), Faktorenextraktion mit Provenienz und Konfidenzen, deterministische Gruppenvorschläge sowie manueller Gruppeneditor mit Audit-Events und Warnhinweisen.
+- Neuer Schritt „Grouping“ nach der Validierung: Spaltenscan via LLM (serverseitig, GPT-5.2), Faktorenextraktion mit Provenienz und Konfidenzen, deterministische Gruppenvorschläge sowie manueller Gruppeneditor mit Audit-Events und Warnhinweisen. Serverless-Funktionen liegen unter `app/api/column-scan.ts` und `app/api/factor-extraction.ts` und validieren die LLM-Antworten auf gültiges JSON.
