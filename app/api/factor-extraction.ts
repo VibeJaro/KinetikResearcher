@@ -47,6 +47,13 @@ export default async function handler(req: any, res: any) {
     return;
   }
 
+  if (!process.env.OPENAI_API_KEY) {
+    res.statusCode = 500;
+    res.setHeader("Content-Type", "application/json");
+    res.end(JSON.stringify({ error: "OPENAI_API_KEY is missing" }));
+    return;
+  }
+
   const payload = await parseBody(req);
   if (!payload) {
     res.statusCode = 400;

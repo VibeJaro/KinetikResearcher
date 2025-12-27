@@ -14,7 +14,7 @@ Key flows:
 - **Validation**: dataset/experiment findings and guidance (`app/src/lib/import/validation.ts`).
 - **Grouping**: LLM-assisted column scan + factor extraction + deterministic grouping proposals
   with manual group editor (`app/src/components/grouping/GroupingScreen.tsx`,
-  `app/api/column-scan.ts`, `app/api/factor-extraction.ts`).
+  API routes under `api/column-scan.ts` and `api/factor-extraction.ts`).
 
 ```bash
 cd app

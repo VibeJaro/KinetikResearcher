@@ -85,6 +85,8 @@ export const GroupingScreen = ({ dataset, onContinue, onAudit }: GroupingScreenP
   const [activeStage, setActiveStage] = useState<"scan" | "factors" | "grouping" | "manual">(
     "scan"
   );
+  const [columnScanError, setColumnScanError] = useState<string | null>(null);
+  const [factorError, setFactorError] = useState<string | null>(null);
 
   const columnScanPayload: ColumnScanRequest | null = useMemo(() => {
     if (groupingExperiments.length === 0) {
@@ -152,42 +154,64 @@ export const GroupingScreen = ({ dataset, onContinue, onAudit }: GroupingScreenP
     if (!columnScanPayload) {
       return;
     }
+    setColumnScanError(null);
     onAudit?.({ type: "LLM_COLUMN_SCAN_REQUESTED" });
-    const response = await fetch("/api/column-scan", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(columnScanPayload)
-    });
-    const json = (await response.json()) as ColumnScanResult;
-    setColumnScanResult(json);
-    setActiveStage("factors");
-    onAudit?.({ type: "LLM_COLUMN_SCAN_COMPLETED" });
+    try {
+      const response = await fetch("/api/column-scan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(columnScanPayload)
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        setColumnScanError(`Column scan failed (${response.status}). ${text || "No details."}`);
+        return;
+      }
+      const json = (await response.json()) as ColumnScanResult;
+      setColumnScanResult(json);
+      setActiveStage("factors");
+      onAudit?.({ type: "LLM_COLUMN_SCAN_COMPLETED" });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown column scan error.";
+      setColumnScanError(message);
+    }
   };
 
   const handleFactorExtraction = async () => {
     if (!factorRequest) {
       return;
     }
+    setFactorError(null);
     onAudit?.({ type: "LLM_FACTOR_EXTRACTION_REQUESTED" });
     const batches = toRequestBatches(factorRequest, 50);
     const aggregated: FactorExtractionResponse = { experiments: [] };
-    for (const batch of batches) {
-      const response = await fetch("/api/factor-extraction", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(batch)
-      });
-      const json = (await response.json()) as FactorExtractionResponse;
-      aggregated.experiments.push(...json.experiments);
+    try {
+      for (const batch of batches) {
+        const response = await fetch("/api/factor-extraction", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(batch)
+        });
+        if (!response.ok) {
+          const text = await response.text();
+          setFactorError(`Factor extraction failed (${response.status}). ${text || "No details."}`);
+          return;
+        }
+        const json = (await response.json()) as FactorExtractionResponse;
+        aggregated.experiments.push(...json.experiments);
+      }
+      // Deduplicate factors per experiment to keep UI compact
+      aggregated.experiments = aggregated.experiments.map((experiment) => ({
+        ...experiment,
+        factors: dedupeFactors(experiment.factors)
+      }));
+      setFactorResponse(aggregated);
+      setActiveStage("grouping");
+      onAudit?.({ type: "LLM_FACTOR_EXTRACTION_COMPLETED" });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown factor extraction error.";
+      setFactorError(message);
     }
-    // Deduplicate factors per experiment to keep UI compact
-    aggregated.experiments = aggregated.experiments.map((experiment) => ({
-      ...experiment,
-      factors: dedupeFactors(experiment.factors)
-    }));
-    setFactorResponse(aggregated);
-    setActiveStage("grouping");
-    onAudit?.({ type: "LLM_FACTOR_EXTRACTION_COMPLETED" });
   };
 
   const handleOverride = (experimentId: string, factorName: string, value: string) => {
@@ -347,6 +371,7 @@ export const GroupingScreen = ({ dataset, onContinue, onAudit }: GroupingScreenP
           {columnScanResult.uncertainties && columnScanResult.uncertainties.length > 0 && (
             <Warning>Uncertainty: {columnScanResult.uncertainties.join("; ")}</Warning>
           )}
+          {columnScanError && <div className="inline-error">{columnScanError}</div>}
         </div>
       </section>
 
@@ -362,6 +387,7 @@ export const GroupingScreen = ({ dataset, onContinue, onAudit }: GroupingScreenP
         </header>
 
         <div className="factor-table">
+          {factorError && <div className="inline-error">{factorError}</div>}
           {factorResponse.experiments.length === 0 ? (
             <p className="meta">No factors yet.</p>
           ) : (

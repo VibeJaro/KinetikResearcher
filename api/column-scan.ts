@@ -1,6 +1,6 @@
 // @ts-nocheck
-import type { ColumnScanRequest, ColumnScanResult } from "../src/lib/grouping/types";
-import { emptyColumnScanResult } from "../src/lib/grouping/columnScan";
+import type { ColumnScanRequest, ColumnScanResult } from "../app/src/lib/grouping/types";
+import { emptyColumnScanResult } from "../app/src/lib/grouping/columnScan";
 
 const parseBody = async (req: any): Promise<ColumnScanRequest | null> => {
   if (!req) return null;
@@ -70,7 +70,11 @@ export default async function handler(req: any, res: any) {
     });
 
     if (!response.ok) {
-      throw new Error("LLM request failed");
+      const text = await response.text();
+      res.statusCode = response.status;
+      res.setHeader("Content-Type", "application/json");
+      res.end(JSON.stringify({ error: text || "LLM request failed" }));
+      return;
     }
 
     const json = await response.json();

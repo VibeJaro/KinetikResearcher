@@ -1,15 +1,19 @@
 // @ts-nocheck
-import type { ColumnScanRequest, ColumnScanResult } from "../src/lib/grouping/types";
-import { emptyColumnScanResult } from "../src/lib/grouping/columnScan";
+import type {
+  FactorExtractionRequest,
+  FactorExtractionResponse,
+  FactorValue
+} from "../app/src/lib/grouping/types";
+import { emptyFactorExtractionResponse } from "../app/src/lib/grouping/factorExtraction";
 
-const parseBody = async (req: any): Promise<ColumnScanRequest | null> => {
+const parseBody = async (req: any): Promise<FactorExtractionRequest | null> => {
   if (!req) return null;
   try {
     if (typeof req.body === "string") {
       return JSON.parse(req.body);
     }
     if (req.body && typeof req.body === "object") {
-      return req.body as ColumnScanRequest;
+      return req.body as FactorExtractionRequest;
     }
     const chunks: Uint8Array[] = [];
     for await (const chunk of req) {
@@ -21,6 +25,19 @@ const parseBody = async (req: any): Promise<ColumnScanRequest | null> => {
     return null;
   }
 };
+
+const sanitizeFactor = (factor: FactorValue) => ({
+  ...factor,
+  provenance: (factor.provenance ?? []).map((entry) => ({
+    column: entry.column,
+    rawValueSnippet:
+      typeof entry.rawValueSnippet === "string"
+        ? entry.rawValueSnippet.slice(0, 160)
+        : entry.rawValueSnippet === null
+          ? ""
+          : String(entry.rawValueSnippet)
+  }))
+});
 
 export default async function handler(req: any, res: any) {
   if (req?.method && req.method !== "POST") {
@@ -46,10 +63,11 @@ export default async function handler(req: any, res: any) {
   }
 
   const systemPrompt = [
-    "You are a chemometrics assistant. Identify columns relevant for grouping kinetic experiments.",
-    "Return strict JSON with selectedColumns, columnRoles, factorCandidates, notes, uncertainties.",
-    "Roles: condition | comment | unknown.",
-    "Factor candidates should include reaction conditions (catalyst, additive, substrate, solvent, temperature, batch, note)."
+    "You are a chemometrics assistant. Extract normalized factors for kinetic experiments.",
+    "Factor names come from factorCandidates; prefer values that can group experiments.",
+    "Return strict JSON with experiments -> factors[name, value, confidence, provenance].",
+    "Use provenance list with column and rawValueSnippet. Include warnings when inferring from comments.",
+    "Confidence: high | medium | low."
   ].join("\n");
 
   try {
@@ -70,16 +88,29 @@ export default async function handler(req: any, res: any) {
     });
 
     if (!response.ok) {
-      throw new Error("LLM request failed");
+      const text = await response.text();
+      res.statusCode = response.status;
+      res.setHeader("Content-Type", "application/json");
+      res.end(JSON.stringify({ error: text || "LLM request failed" }));
+      return;
     }
 
     const json = await response.json();
     const result = json?.choices?.[0]?.message?.content;
-    const parsed: ColumnScanResult = result ? JSON.parse(result) : emptyColumnScanResult;
+    const parsed: FactorExtractionResponse = result
+      ? JSON.parse(result)
+      : emptyFactorExtractionResponse;
+
+    const sanitized: FactorExtractionResponse = {
+      experiments: parsed.experiments.map((experiment) => ({
+        ...experiment,
+        factors: experiment.factors.map(sanitizeFactor)
+      }))
+    };
 
     res.statusCode = 200;
     res.setHeader("Content-Type", "application/json");
-    res.end(JSON.stringify(parsed));
+    res.end(JSON.stringify(sanitized));
   } catch (error) {
     res.statusCode = 500;
     res.setHeader("Content-Type", "application/json");
