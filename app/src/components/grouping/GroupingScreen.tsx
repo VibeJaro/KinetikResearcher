@@ -7,8 +7,10 @@ import {
 } from "../../lib/grouping/helpers";
 import type {
   ColumnScanResult,
+  ExtractedFactor,
   FactorExtractionResult,
   FactorOverrides,
+  FactorProvenance,
   GroupingRecipe,
   GroupingRecipeGroup
 } from "../../lib/grouping/types";
@@ -402,9 +404,14 @@ export const GroupingScreen = ({
                   <p className="meta">{experiment.experimentId}</p>
                 </div>
                 {factorNames.map((factorName) => {
+                  const defaultFactor: ExtractedFactor = {
+                    name: factorName,
+                    value: null,
+                    confidence: "low",
+                    provenance: []
+                  };
                   const factor =
-                    experiment.factors.find((item) => item.name === factorName) ??
-                    ({ value: null, confidence: "low", provenance: [] } as any);
+                    experiment.factors.find((item) => item.name === factorName) ?? defaultFactor;
                   const currentOverride =
                     groupingState.factorOverrides[experiment.experimentId]?.[factorName];
                   const displayValue =
@@ -418,7 +425,7 @@ export const GroupingScreen = ({
                       <details>
                         <summary>Provenance</summary>
                         {factor.provenance.length === 0 && <p className="meta">No provenance.</p>}
-                        {factor.provenance.map((prov, index) => (
+                        {factor.provenance.map((prov: FactorProvenance, index: number) => (
                           <p key={index} className="meta">
                             {prov.column}: {prov.rawValueSnippet}
                           </p>
