@@ -1,4 +1,10 @@
-import type { Dataset, Experiment, RawTable, Series } from "./types";
+import type {
+  Dataset,
+  Experiment,
+  MetadataValue,
+  RawTable,
+  Series
+} from "./types";
 import { detectTimeType } from "./time";
 
 export type MappingSelection = {
@@ -99,6 +105,59 @@ const hasRowContent = (row: (string | number | null)[]): boolean =>
     return cell.trim().length > 0;
   });
 
+const normalizeMetadataValue = (value: string | number | null): MetadataValue => {
+  if (value === null) {
+    return null;
+  }
+  if (typeof value === "number") {
+    return Number.isNaN(value) ? null : value;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  const numericCandidate = parseNumericCell(trimmed);
+  if (numericCandidate !== null) {
+    return numericCandidate;
+  }
+  return trimmed;
+};
+
+const collapseMetadataValues = (values: MetadataValue[]): {
+  value: MetadataValue;
+  consistent: boolean;
+} => {
+  const nonNullValues = values.filter((item) => item !== null) as (string | number)[];
+  if (nonNullValues.length === 0) {
+    return { value: null, consistent: true };
+  }
+
+  const counts = new Map<string, { value: string | number; count: number; firstIndex: number }>();
+  nonNullValues.forEach((item, index) => {
+    const key = typeof item === "number" ? `num:${item}` : `str:${item.toLowerCase()}`;
+    const existing = counts.get(key);
+    if (existing) {
+      existing.count += 1;
+    } else {
+      counts.set(key, { value: item, count: 1, firstIndex: index });
+    }
+  });
+
+  const sorted = Array.from(counts.values()).sort((a, b) => {
+    if (b.count === a.count) {
+      return a.firstIndex - b.firstIndex;
+    }
+    return b.count - a.count;
+  });
+
+  const uniqueCount = counts.size;
+  const collapsed = sorted[0]?.value ?? null;
+  return {
+    value: collapsed ?? null,
+    consistent: uniqueCount <= 1
+  };
+};
+
 export const applyMappingToDataset = ({
   table,
   selection,
@@ -146,6 +205,15 @@ export const applyMappingToDataset = ({
       : null;
 
   const groupMap = new Map<string, (string | number | null)[][]>();
+  const structuralIndices = new Set<number>([
+    timeIndex,
+    ...selection.valueColumnIndices,
+    ...(experimentIndex === -1 ? [] : [experimentIndex]),
+    ...(replicateIndex === -1 ? [] : [replicateIndex])
+  ]);
+  const metadataIndices = headers
+    .map((_, index) => index)
+    .filter((index) => !structuralIndices.has(index));
 
   normalizedTable.rows.forEach((row, rowIndex) => {
     if (!hasRowContent(row)) {
@@ -235,7 +303,19 @@ export const applyMappingToDataset = ({
           replicateIndex === -1 ? null : headers[replicateIndex] ?? null,
         sheetName: normalizedTable.sheetName
       },
-      series
+      series,
+      ...(() => {
+        const metaRaw: Record<string, MetadataValue> = {};
+        const metaConsistency: Record<string, boolean> = {};
+        metadataIndices.forEach((index) => {
+          const header = headers[index] ?? `Column ${index + 1}`;
+          const normalizedValues = rows.map((row) => normalizeMetadataValue(row[index] ?? null));
+          const { value, consistent } = collapseMetadataValues(normalizedValues);
+          metaRaw[header] = value;
+          metaConsistency[header] = consistent;
+        });
+        return { metaRaw, metaConsistency };
+      })()
     });
   });
 

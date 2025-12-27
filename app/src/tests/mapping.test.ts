@@ -48,6 +48,32 @@ describe("mapping logic", () => {
     expect(seriesPoints).toEqual(expect.arrayContaining([2, 1]));
   });
 
+  it("aggregates metadata columns with frequency and consistency flags", () => {
+    const table: RawTable = {
+      headers: ["time", "value", "catalyst", "note"],
+      rows: [
+        [0, 1, "Pd/C", "fresh"],
+        [1, 2, "Pd/C", "fresh"],
+        [2, 3, "Ni", "fresh?"]
+      ]
+    };
+    const selection: MappingSelection = {
+      firstRowIsHeader: true,
+      timeColumnIndex: 0,
+      valueColumnIndices: [1],
+      experimentColumnIndex: null,
+      replicateColumnIndex: null
+    };
+    const result = applyMappingToDataset({
+      table,
+      selection,
+      fileName: "meta.csv"
+    });
+    expect(result.dataset?.experiments[0].metaRaw.catalyst).toBe("Pd/C");
+    expect(result.dataset?.experiments[0].metaConsistency?.catalyst).toBe(false);
+    expect(result.dataset?.experiments[0].metaRaw.note).toBe("fresh");
+  });
+
   it("returns errors when time column is invalid", () => {
     const table: RawTable = {
       headers: ["time", "value"],

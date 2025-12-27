@@ -3,6 +3,7 @@ import "./App.css";
 import { parseFile } from "./lib/import/parseFile";
 import { MappingPanel } from "./components/import/MappingPanel";
 import { ValidationScreen } from "./components/validation/ValidationScreen";
+import { GroupingScreen } from "./components/grouping/GroupingScreen";
 import {
   applyMappingToDataset,
   type MappingError,
@@ -12,6 +13,7 @@ import {
 import type { AuditEntry, Dataset, RawTable } from "./lib/import/types";
 import type { ValidationReport } from "./lib/import/validation";
 import { generateImportValidationReport } from "./lib/import/validation";
+import type { GroupingState } from "./lib/grouping/types";
 
 // UI reference draft: design/kinetik-researcher.design-draft.html
 
@@ -44,6 +46,7 @@ type Question = {
 const steps = [
   "Import & Mapping",
   "Validation",
+  "Grouping",
   "Questions",
   "Modeling",
   "Diagnostics",
@@ -110,6 +113,19 @@ const initialAuditEntries: AuditEntry[] = [
   }
 ];
 
+const createInitialGroupingState = (): GroupingState => ({
+  columnScan: null,
+  selectedColumns: [],
+  includeComments: false,
+  factorCandidates: ["catalyst", "additive", "substrate", "solvent", "temperature", "batch", "note"],
+  factors: [],
+  overrides: {},
+  groupingOptions: [],
+  selectedOptionId: null,
+  groups: [],
+  manualGroupsDirty: false
+});
+
 const statusLabel: Record<ExperimentStatus, string> = {
   clean: "Clean",
   "needs-info": "Needs info",
@@ -170,6 +186,7 @@ function App() {
   const [activeQuestionId, setActiveQuestionId] = useState<string | null>("q1");
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [auditEntries, setAuditEntries] = useState(initialAuditEntries);
+  const [groupingState, setGroupingState] = useState<GroupingState>(createInitialGroupingState());
   const [filters, setFilters] = useState({
     clean: true,
     needsInfo: true,
@@ -178,6 +195,7 @@ function App() {
   });
   const [isAuditOpen, setIsAuditOpen] = useState(true);
   const [dataset, setDataset] = useState<Dataset | null>(null);
+  const [lastDatasetId, setLastDatasetId] = useState<string | null>(null);
   const [rawTables, setRawTables] = useState<RawTable[]>([]);
   const [activeRawTable, setActiveRawTable] = useState<RawTable | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
@@ -201,6 +219,9 @@ function App() {
     useState<MappingSelection | null>(null);
   const [importReport, setImportReport] = useState<ValidationReport | null>(null);
   const mappingPanelRef = useRef<HTMLDivElement | null>(null);
+  const pushAuditEntry = (type: string, payload: Record<string, unknown>) => {
+    setAuditEntries((prev) => [createAuditEntry(type, payload), ...prev]);
+  };
 
   const importedExperiments = dataset?.experiments ?? [];
   const experimentStatusMap = useMemo(() => {
@@ -328,6 +349,20 @@ function App() {
   useEffect(() => {
     setDataset((prev) => (prev ? { ...prev, audit: auditEntries } : prev));
   }, [auditEntries]);
+
+  useEffect(() => {
+    if (!dataset?.id) {
+      if (lastDatasetId !== null) {
+        setGroupingState(createInitialGroupingState());
+        setLastDatasetId(null);
+      }
+      return;
+    }
+    if (dataset.id !== lastDatasetId) {
+      setGroupingState(createInitialGroupingState());
+      setLastDatasetId(dataset.id);
+    }
+  }, [dataset?.id, lastDatasetId]);
 
   useEffect(() => {
     if (!activeRawTable) {
@@ -574,7 +609,7 @@ function App() {
     if (selectedExperiments.some((experiment) => experiment.status === "broken")) {
       return;
     }
-    setActiveStep("Questions");
+    setActiveStep("Grouping");
   };
 
   const handleContinueToValidation = () => {
@@ -740,6 +775,19 @@ function App() {
             Boolean(importReport?.status === "broken") ||
             selectedExperiments.some((experiment) => experiment.status === "broken")
           }
+        />
+      );
+    }
+
+    if (activeStep === "Grouping") {
+      return (
+        <GroupingScreen
+          dataset={dataset}
+          state={groupingState}
+          onStateChange={setGroupingState}
+          onBackToValidation={() => setActiveStep("Validation")}
+          onContinueToModeling={() => setActiveStep("Modeling")}
+          addAuditEntry={pushAuditEntry}
         />
       );
     }

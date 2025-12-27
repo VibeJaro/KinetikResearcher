@@ -12,11 +12,15 @@ export type Series = {
   meta?: Record<string, unknown>;
 };
 
+export type MetadataValue = string | number | null;
+
 export type Experiment = {
   id: string;
   name: string;
   raw?: unknown;
   series: Series[];
+  metaRaw: Record<string, MetadataValue>;
+  metaConsistency?: Record<string, boolean>;
 };
 
 export type AuditEntry = {

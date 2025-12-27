@@ -108,7 +108,9 @@ export const buildDatasetFromRawTable = (
           valueHeader: table.headers[valueIndex],
           sheetName: table.sheetName
         },
-        series: [series]
+        series: [series],
+        metaRaw: {},
+        metaConsistency: {}
       });
     }
   }
