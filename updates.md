@@ -9,3 +9,9 @@
 - Warnungen und Fehler sind nun in verständlicher Sprache formuliert und pro Experiment gruppiert, inklusive optionaler technischer Details.
 - Die Experiment-Statusanzeigen im Sidebar spiegeln Warnungen und Fehler korrekt wider und unterscheiden zwischen sauber, Hinweisbedarf und kritisch.
 - Dataset-weite Fehler werden separat angezeigt, ohne einzelne Experimente pauschal zu blockieren.
+- Nach der Validierung gibt es jetzt einen **Grouping**-Schritt mit drei Phasen:
+  - LLM-gestützter Column Scan schlägt relevante Metadaten-Spalten vor (inkl. Rolle/Unsicherheit).
+  - Factor Extraction normalisiert Metadaten experimentweise, zeigt Confidence und Provenance und erlaubt Overrides.
+  - Deterministische Grouping-Optionen (z. B. Katalysator, Katalysator+Additiv, Temperatur-Bins) mit manuellem Editor (merge/split/rename/move).
+- Metadaten werden beim Import experimentweise kollabiert (`metaRaw` + Konsistenzhinweis), damit der Grouping-Step alle Experimente umfasst.
+- Vercel-API-Routen (`/api/column-scan`, `/api/factor-extraction`) rufen GPT-5.2 serverseitig auf (`OPENAI_API_KEY`), es bleibt bei einer datenbankfreien Architektur.

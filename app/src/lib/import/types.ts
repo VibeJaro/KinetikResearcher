@@ -17,6 +17,11 @@ export type Experiment = {
   name: string;
   raw?: unknown;
   series: Series[];
+  metaRaw?: Record<string, string | number | null>;
+  metaConsistency?: Record<
+    string,
+    { consistent: boolean; distinctValues: Array<string | number> }
+  >;
 };
 
 export type AuditEntry = {

@@ -1,5 +1,6 @@
-import type { Dataset, Experiment, RawTable, Series } from "./types";
 import { detectTimeType } from "./time";
+import type { Dataset, Experiment, RawTable, Series } from "./types";
+import { collapseMetadataForExperiment } from "../grouping/metadata";
 
 export type MappingSelection = {
   firstRowIsHeader: boolean;
@@ -221,6 +222,15 @@ export const applyMappingToDataset = ({
       };
     });
 
+    const { metaRaw, metaConsistency } = collapseMetadataForExperiment({
+      headers,
+      rows,
+      timeIndex,
+      valueIndices: selection.valueColumnIndices,
+      experimentIndex,
+      replicateIndex
+    });
+
     experiments.push({
       id: createId("exp"),
       name: groupName,
@@ -235,7 +245,9 @@ export const applyMappingToDataset = ({
           replicateIndex === -1 ? null : headers[replicateIndex] ?? null,
         sheetName: normalizedTable.sheetName
       },
-      series
+      series,
+      metaRaw,
+      metaConsistency
     });
   });
 

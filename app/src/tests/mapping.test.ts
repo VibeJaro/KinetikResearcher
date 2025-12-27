@@ -72,4 +72,35 @@ describe("mapping logic", () => {
     expect(result.errors).toHaveLength(1);
     expect(result.errors[0].rowIndex).toBe(1);
   });
+
+  it("collapses metadata per experiment with consistency flags", () => {
+    const table: RawTable = {
+      headers: ["time", "value", "exp", "catalyst"],
+      rows: [
+        [0, 1, "A", "Pd/C"],
+        [1, 2, "A", "Pd/C reused"],
+        [2, 3, "A", "Pd/C"],
+        [0, 4, "B", "Pt/Al2O3"]
+      ]
+    };
+
+    const selection: MappingSelection = {
+      firstRowIsHeader: true,
+      timeColumnIndex: 0,
+      valueColumnIndices: [1],
+      experimentColumnIndex: 2,
+      replicateColumnIndex: null
+    };
+
+    const result = applyMappingToDataset({
+      table,
+      selection,
+      fileName: "run.csv"
+    });
+
+    expect(result.errors).toHaveLength(0);
+    const experimentA = result.dataset?.experiments.find((exp) => exp.name === "A");
+    expect(experimentA?.metaRaw?.catalyst).toBe("Pd/C");
+    expect(experimentA?.metaConsistency?.catalyst?.consistent).toBe(false);
+  });
 });
