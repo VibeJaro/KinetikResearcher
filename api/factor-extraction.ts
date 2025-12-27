@@ -89,17 +89,32 @@ export default async function handler(req: any, res: any) {
 
     if (!response.ok) {
       const text = await response.text();
+      const errorMessage = text || "LLM request failed";
+      console.error("Factor extraction upstream error:", errorMessage);
       res.statusCode = response.status;
       res.setHeader("Content-Type", "application/json");
-      res.end(JSON.stringify({ error: text || "LLM request failed" }));
+      res.end(JSON.stringify({ error: errorMessage }));
       return;
     }
 
     const json = await response.json();
     const result = json?.choices?.[0]?.message?.content;
-    const parsed: FactorExtractionResponse = result
-      ? JSON.parse(result)
-      : emptyFactorExtractionResponse;
+    if (!result) {
+      res.statusCode = 500;
+      res.setHeader("Content-Type", "application/json");
+      res.end(JSON.stringify({ error: "Empty LLM response" }));
+      return;
+    }
+    let parsed: FactorExtractionResponse = emptyFactorExtractionResponse;
+    try {
+      parsed = JSON.parse(result) as FactorExtractionResponse;
+    } catch (error) {
+      console.error("Factor extraction parse error:", error, result);
+      res.statusCode = 500;
+      res.setHeader("Content-Type", "application/json");
+      res.end(JSON.stringify({ error: "Failed to parse LLM response" }));
+      return;
+    }
 
     const sanitized: FactorExtractionResponse = {
       experiments: parsed.experiments.map((experiment) => ({
@@ -112,6 +127,7 @@ export default async function handler(req: any, res: any) {
     res.setHeader("Content-Type", "application/json");
     res.end(JSON.stringify(sanitized));
   } catch (error) {
+    console.error("Factor extraction handler error:", error);
     res.statusCode = 500;
     res.setHeader("Content-Type", "application/json");
     res.end(JSON.stringify({ error: error?.message ?? "LLM request failed" }));

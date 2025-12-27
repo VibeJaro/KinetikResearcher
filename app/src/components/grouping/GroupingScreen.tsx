@@ -88,6 +88,19 @@ export const GroupingScreen = ({ dataset, onContinue, onAudit }: GroupingScreenP
   const [columnScanError, setColumnScanError] = useState<string | null>(null);
   const [factorError, setFactorError] = useState<string | null>(null);
 
+  const parseErrorMessage = async (response: Response): Promise<string> => {
+    const text = await response.text();
+    if (!text) {
+      return `Request failed (${response.status})`;
+    }
+    try {
+      const parsed = JSON.parse(text) as { error?: string };
+      return parsed.error ?? text;
+    } catch {
+      return text;
+    }
+  };
+
   const columnScanPayload: ColumnScanRequest | null = useMemo(() => {
     if (groupingExperiments.length === 0) {
       return null;
@@ -163,8 +176,8 @@ export const GroupingScreen = ({ dataset, onContinue, onAudit }: GroupingScreenP
         body: JSON.stringify(columnScanPayload)
       });
       if (!response.ok) {
-        const text = await response.text();
-        setColumnScanError(`Column scan failed (${response.status}). ${text || "No details."}`);
+        const text = await parseErrorMessage(response);
+        setColumnScanError(`Column scan failed (${response.status}). ${text}`);
         return;
       }
       const json = (await response.json()) as ColumnScanResult;
@@ -193,8 +206,8 @@ export const GroupingScreen = ({ dataset, onContinue, onAudit }: GroupingScreenP
           body: JSON.stringify(batch)
         });
         if (!response.ok) {
-          const text = await response.text();
-          setFactorError(`Factor extraction failed (${response.status}). ${text || "No details."}`);
+          const text = await parseErrorMessage(response);
+          setFactorError(`Factor extraction failed (${response.status}). ${text}`);
           return;
         }
         const json = (await response.json()) as FactorExtractionResponse;

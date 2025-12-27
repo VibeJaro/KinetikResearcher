@@ -70,17 +70,39 @@ export default async function handler(req: any, res: any) {
     });
 
     if (!response.ok) {
-      throw new Error("LLM request failed");
+      const text = await response.text();
+      const errorMessage = text || "LLM request failed";
+      console.error("Column scan upstream error:", errorMessage);
+      res.statusCode = response.status;
+      res.setHeader("Content-Type", "application/json");
+      res.end(JSON.stringify({ error: errorMessage }));
+      return;
     }
 
     const json = await response.json();
     const result = json?.choices?.[0]?.message?.content;
-    const parsed: ColumnScanResult = result ? JSON.parse(result) : emptyColumnScanResult;
+    if (!result) {
+      res.statusCode = 500;
+      res.setHeader("Content-Type", "application/json");
+      res.end(JSON.stringify({ error: "Empty LLM response" }));
+      return;
+    }
+    let parsed: ColumnScanResult = emptyColumnScanResult;
+    try {
+      parsed = JSON.parse(result) as ColumnScanResult;
+    } catch (error) {
+      console.error("Column scan parse error:", error, result);
+      res.statusCode = 500;
+      res.setHeader("Content-Type", "application/json");
+      res.end(JSON.stringify({ error: "Failed to parse LLM response" }));
+      return;
+    }
 
     res.statusCode = 200;
     res.setHeader("Content-Type", "application/json");
     res.end(JSON.stringify(parsed));
   } catch (error) {
+    console.error("Column scan handler error:", error);
     res.statusCode = 500;
     res.setHeader("Content-Type", "application/json");
     res.end(JSON.stringify({ error: error?.message ?? "LLM request failed" }));
