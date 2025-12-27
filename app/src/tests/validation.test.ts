@@ -22,6 +22,8 @@ const buildSeries = (overrides: Partial<Series> = {}): Series => ({
 const buildExperiment = (series: Series[]): Experiment => ({
   id: "exp-1",
   name: "Experiment 1",
+  metaRaw: {},
+  metaConsistency: {},
   series
 });
 

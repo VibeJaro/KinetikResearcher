@@ -64,6 +64,14 @@ const Disclaimer = () => (
 
 export const GroupingScreen = ({ dataset, onContinue, onAudit }: GroupingScreenProps) => {
   const experiments = dataset?.experiments ?? [];
+  const groupingExperiments = useMemo(
+    () =>
+      experiments.map((experiment) => ({
+        experimentId: experiment.id,
+        metaRaw: experiment.metaRaw ?? {}
+      })),
+    [experiments]
+  );
   const [columnScanResult, setColumnScanResult] = useState<ColumnScanResult>(emptyColumnScanResult);
   const [includeComments, setIncludeComments] = useState(false);
   const [factorResponse, setFactorResponse] = useState<FactorExtractionResponse>(
@@ -79,17 +87,17 @@ export const GroupingScreen = ({ dataset, onContinue, onAudit }: GroupingScreenP
   );
 
   const columnScanPayload: ColumnScanRequest | null = useMemo(() => {
-    if (experiments.length === 0) {
+    if (groupingExperiments.length === 0) {
       return null;
     }
     return buildColumnScanPayload({
-      experiments,
+      experiments: groupingExperiments,
       knownStructuralColumns
     });
-  }, [experiments]);
+  }, [groupingExperiments]);
 
   const factorRequest: FactorExtractionRequest | null = useMemo(() => {
-    if (experiments.length === 0) {
+    if (groupingExperiments.length === 0) {
       return null;
     }
     const selectedColumns = columnScanResult.selectedColumns.filter((column) => {
@@ -105,12 +113,12 @@ export const GroupingScreen = ({ dataset, onContinue, onAudit }: GroupingScreenP
     return {
       factorCandidates,
       selectedColumns,
-      experiments: experiments.map((experiment) => ({
-        experimentId: experiment.id,
+      experiments: groupingExperiments.map((experiment) => ({
+        experimentId: experiment.experimentId,
         meta: experiment.metaRaw
       }))
     } satisfies FactorExtractionRequest;
-  }, [columnScanResult, experiments, includeComments]);
+  }, [columnScanResult, groupingExperiments, includeComments]);
 
   const factorTable = useMemo(() => mergeOverrides(factorResponse, factorOverrides), [factorOverrides, factorResponse]);
 
