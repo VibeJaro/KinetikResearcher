@@ -430,6 +430,32 @@
   gap: 12px;
 }
 
+.grouping-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.column-scan-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.column-scan-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.column-scan-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .mapping-anchor:focus {
   outline: 2px solid #1d4ed8;
   outline-offset: 6px;

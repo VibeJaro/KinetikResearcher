@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 import { parseFile } from "./lib/import/parseFile";
+import { GroupingScreen, type ColumnScanPayload } from "./components/grouping/GroupingScreen";
 import { MappingPanel } from "./components/import/MappingPanel";
 import { ValidationScreen } from "./components/validation/ValidationScreen";
 import {
   applyMappingToDataset,
+  normalizeMappingTable,
   type MappingError,
   type MappingSelection,
   type MappingStats
@@ -44,6 +46,7 @@ type Question = {
 const steps = [
   "Import & Mapping",
   "Validation",
+  "Grouping",
   "Questions",
   "Modeling",
   "Diagnostics",
@@ -202,7 +205,17 @@ function App() {
   const [importReport, setImportReport] = useState<ValidationReport | null>(null);
   const mappingPanelRef = useRef<HTMLDivElement | null>(null);
 
-  const importedExperiments = dataset?.experiments ?? [];
+  const importedExperiments = useMemo(
+    () => dataset?.experiments ?? [],
+    [dataset?.experiments]
+  );
+  const normalizedActiveTable = useMemo(
+    () =>
+      activeRawTable
+        ? normalizeMappingTable(activeRawTable, mappingSelection.firstRowIsHeader)
+        : null,
+    [activeRawTable, mappingSelection.firstRowIsHeader]
+  );
   const experimentStatusMap = useMemo(() => {
     if (!importReport) {
       return new Map<string, ExperimentStatus>();
@@ -330,6 +343,29 @@ function App() {
   useEffect(() => {
     setDataset((prev) => (prev ? { ...prev, audit: auditEntries } : prev));
   }, [auditEntries]);
+
+  const columnScanPayload = useMemo<ColumnScanPayload | null>(() => {
+    if (!normalizedActiveTable) {
+      return null;
+    }
+    const headers = normalizedActiveTable.headers.map((header) => String(header ?? ""));
+    const getHeader = (index: number | null): string | null =>
+      index !== null && headers[index] !== undefined ? headers[index] : null;
+    const valueHeaders = mappingSelection.valueColumnIndices
+      .map((index) => headers[index])
+      .filter((header): header is string => typeof header === "string");
+
+    return {
+      columns: headers,
+      experimentCount: mappingStats?.experimentCount ?? null,
+      knownStructuralColumns: {
+        time: getHeader(mappingSelection.timeColumnIndex),
+        values: valueHeaders,
+        experiment: getHeader(mappingSelection.experimentColumnIndex),
+        replicate: getHeader(mappingSelection.replicateColumnIndex)
+      }
+    };
+  }, [mappingSelection, mappingStats, normalizedActiveTable]);
 
   useEffect(() => {
     if (!activeRawTable) {
@@ -576,7 +612,7 @@ function App() {
     if (selectedExperiments.some((experiment) => experiment.status === "broken")) {
       return;
     }
-    setActiveStep("Questions");
+    setActiveStep("Grouping");
   };
 
   const handleContinueToValidation = () => {
@@ -742,6 +778,15 @@ function App() {
             Boolean(importReport?.status === "broken") ||
             selectedExperiments.some((experiment) => experiment.status === "broken")
           }
+        />
+      );
+    }
+
+    if (activeStep === "Grouping") {
+      return (
+        <GroupingScreen
+          experiments={importedExperiments}
+          columnScanPayload={columnScanPayload}
         />
       );
     }
