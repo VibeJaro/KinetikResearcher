@@ -745,15 +745,30 @@ function App() {
         );
       }
       const result = payload.result ?? payload;
+      const normalizedExperiments = (result.experiments as any[]).map((experiment) => {
+        const factors = Array.isArray(experiment.factors) ? experiment.factors : [];
+        const normalizedFactors = factors.map((factor: any) => ({
+          name: factor.name,
+          value: factor.value ?? null,
+          confidence: factor.confidence ?? "low",
+          provenance: Array.isArray(factor.provenance)
+            ? factor.provenance.filter(Boolean).map((item) => ({
+                column: item?.column ?? "unknown",
+                rawValueSnippet: item?.rawValueSnippet ?? ""
+              }))
+            : []
+        }));
+        return { ...experiment, factors: normalizedFactors };
+      });
       const factorNames = Array.from(
         new Set(
-          (result.experiments as { factors: { name: string }[] }[]).flatMap((experiment) =>
+          normalizedExperiments.flatMap((experiment) =>
             experiment.factors.map((factor) => factor.name)
           )
         )
       );
       const normalizedResult: FactorExtractionResult = {
-        experiments: result.experiments,
+        experiments: normalizedExperiments,
         factorNames,
         factorCandidates,
         selectedColumns: groupingState.selectedColumns
