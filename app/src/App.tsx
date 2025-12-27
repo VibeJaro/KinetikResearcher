@@ -652,7 +652,15 @@ function App() {
           knownStructuralColumns: ["experimentId", "time", "signal"]
         })
       });
-      const payload = await response.json();
+      const text = await response.text();
+      const payload = JSON.parse(text);
+      if (!response.ok || payload.error) {
+        throw new Error(
+          typeof payload.error === "string"
+            ? payload.error
+            : `Column scan failed with status ${response.status}`
+        );
+      }
       const result = (payload.result ?? payload) as ColumnScanResult;
       const filteredSelection = (result.selectedColumns ?? []).filter(
         (column) =>
@@ -671,9 +679,10 @@ function App() {
         selectedColumns: filteredSelection.length
       });
     } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown column scan error";
       setGroupingState((prev) => ({ ...prev, columnScanLoading: false }));
       logAudit(setAuditEntries, "LLM_COLUMN_SCAN_COMPLETED", {
-        error: error instanceof Error ? error.message : "Unknown column scan error"
+        error: message
       });
     }
   };
@@ -716,7 +725,15 @@ function App() {
           experiments: experimentsPayload
         })
       });
-      const payload = await response.json();
+      const text = await response.text();
+      const payload = JSON.parse(text);
+      if (!response.ok || payload.error) {
+        throw new Error(
+          typeof payload.error === "string"
+            ? payload.error
+            : `Factor extraction failed with status ${response.status}`
+        );
+      }
       const result = payload.result ?? payload;
       const factorNames = Array.from(
         new Set(
@@ -741,9 +758,10 @@ function App() {
         factorCount: factorNames.length
       });
     } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown factor extraction error";
       setGroupingState((prev) => ({ ...prev, factorExtractionLoading: false }));
       logAudit(setAuditEntries, "LLM_FACTOR_EXTRACTION_COMPLETED", {
-        error: error instanceof Error ? error.message : "Unknown factor extraction error"
+        error: message
       });
     }
   };

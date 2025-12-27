@@ -14,6 +14,17 @@ export default async function handler(req: any, res: any) {
 
   const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
 
+  const parseContent = (content: string | null | undefined) => {
+    if (!content) {
+      return null;
+    }
+    try {
+      return JSON.parse(content);
+    } catch (error) {
+      return { __raw: content, error: error instanceof Error ? error.message : "Unknown parse error" };
+    }
+  };
+
   try {
     const completion = await fetch(OPENAI_API_URL, {
       method: "POST",
@@ -46,8 +57,15 @@ export default async function handler(req: any, res: any) {
 
     const data = await completion.json();
     const content = data.choices?.[0]?.message?.content;
-    const result = content ? JSON.parse(content) : {};
-    res.status(200).json({ result });
+    const parsed = parseContent(content);
+    if (!parsed || parsed.__raw) {
+      res.status(500).json({
+        error: "LLM response was not valid JSON",
+        raw: typeof parsed?.__raw === "string" ? parsed.__raw.slice(0, 500) : content
+      });
+      return;
+    }
+    res.status(200).json({ result: parsed });
   } catch (error) {
     res.status(500).json({
       error: error instanceof Error ? error.message : "Unknown factor extraction error"
