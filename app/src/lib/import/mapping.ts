@@ -1,3 +1,4 @@
+import { ensureMetaRaw } from "./types";
 import type { Dataset, Experiment, RawTable, Series } from "./types";
 import { detectTimeType } from "./time";
 
@@ -221,22 +222,23 @@ export const applyMappingToDataset = ({
       };
     });
 
-    experiments.push({
-      id: createId("exp"),
-      name: groupName,
-      raw: {
-        timeHeader: headers[timeIndex],
-        valueHeaders: selection.valueColumnIndices.map(
-          (index) => headers[index] ?? `Column ${index + 1}`
-        ),
-        experimentHeader:
-          experimentIndex === -1 ? null : headers[experimentIndex] ?? null,
-        replicateHeader:
-          replicateIndex === -1 ? null : headers[replicateIndex] ?? null,
-        sheetName: normalizedTable.sheetName
-      },
-      series
-    });
+    const valueHeaders = selection.valueColumnIndices.map(
+      (index) => headers[index] ?? `Column ${index + 1}`
+    );
+    experiments.push(
+      ensureMetaRaw({
+        experimentId: createId("exp"),
+        name: groupName,
+        series,
+        metaRaw: {
+          timeHeader: headers[timeIndex] ?? null,
+          valueHeaders: valueHeaders.join(", "),
+          experimentHeader: experimentIndex === -1 ? null : headers[experimentIndex] ?? null,
+          replicateHeader: replicateIndex === -1 ? null : headers[replicateIndex] ?? null,
+          sheetName: normalizedTable.sheetName ?? null
+        }
+      })
+    );
   });
 
   const stats: MappingStats = {

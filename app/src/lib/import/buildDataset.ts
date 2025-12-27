@@ -1,4 +1,5 @@
 import type { Dataset, Experiment, RawTable, Series } from "./types";
+import { ensureMetaRaw } from "./types";
 
 const numericPattern = /^-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?$/;
 
@@ -100,16 +101,13 @@ export const buildDatasetFromRawTable = (
         y
       };
 
-      experiments.push({
-        id: createId("exp"),
-        name: "Auto-mapped experiment",
-        raw: {
-          timeHeader: table.headers[timeIndex],
-          valueHeader: table.headers[valueIndex],
-          sheetName: table.sheetName
-        },
-        series: [series]
-      });
+      experiments.push(
+        ensureMetaRaw({
+          experimentId: createId("exp"),
+          name: "Auto-mapped experiment",
+          series: [series]
+        })
+      );
     }
   }
 

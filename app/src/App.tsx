@@ -18,7 +18,7 @@ import { generateImportValidationReport } from "./lib/import/validation";
 type ExperimentStatus = "clean" | "needs-info" | "broken" | "fit-done" | "mixed";
 
 type SampleExperiment = {
-  id: string;
+  experimentId: string;
   name: string;
   substrate: string;
   temperature: string;
@@ -26,7 +26,7 @@ type SampleExperiment = {
 };
 
 type SidebarExperiment = {
-  id: string;
+  experimentId: string;
   name: string;
   subtitle: string;
   status: ExperimentStatus;
@@ -54,7 +54,7 @@ const sampleExperiments: SampleExperiment[] = Array.from({ length: 20 }, (_, ind
   const statusCycle: ExperimentStatus[] = ["clean", "needs-info", "fit-done"];
   const status = statusCycle[index % statusCycle.length];
   return {
-    id: `exp-${index + 1}`,
+    experimentId: `exp-${index + 1}`,
     name: `Experiment ${index + 1}`,
     substrate: index % 2 === 0 ? "Substrate A" : "Substrate B",
     temperature: `${22 + (index % 6)}°C`,
@@ -85,7 +85,7 @@ const baseQuestions: Question[] = [
 
 const initialQuestionsByExperiment = sampleExperiments.reduce<Record<string, Question[]>>(
   (acc, experiment) => {
-    acc[experiment.id] = baseQuestions.map((question) => ({ ...question }));
+    acc[experiment.experimentId] = baseQuestions.map((question) => ({ ...question }));
     return acc;
   },
   {}
@@ -214,17 +214,17 @@ function App() {
   const sidebarExperiments = useMemo<SidebarExperiment[]>(() => {
     if (importedExperiments.length > 0) {
       return importedExperiments.map((experiment) => ({
-        id: experiment.id,
-        name: experiment.name,
+        experimentId: experiment.experimentId,
+        name: experiment.name ?? "Untitled experiment",
         subtitle: `${experiment.series.length} series`,
-        status: experimentStatusMap.get(experiment.id) ?? "clean",
+        status: experimentStatusMap.get(experiment.experimentId) ?? "clean",
         source: "imported",
         seriesCount: experiment.series.length
       }));
     }
 
     return sampleExperiments.map((experiment) => ({
-      id: experiment.id,
+      experimentId: experiment.experimentId,
       name: experiment.name,
       subtitle: `${experiment.substrate} · ${experiment.temperature}`,
       status: experiment.status,
@@ -235,7 +235,7 @@ function App() {
   const selectedExperiments = useMemo(
     () =>
       sidebarExperiments.filter((experiment) =>
-        selectedExperimentIds.includes(experiment.id)
+        selectedExperimentIds.includes(experiment.experimentId)
       ),
     [selectedExperimentIds, sidebarExperiments]
   );
@@ -276,7 +276,7 @@ function App() {
   const activeExperiment = selectedExperiments[0] ?? null;
 
   const questionsForActive = activeExperiment
-    ? questionsByExperiment[activeExperiment.id] ?? []
+    ? questionsByExperiment[activeExperiment.experimentId] ?? []
     : [];
 
   const unresolvedQuestions = questionsForActive.filter((question) => !question.resolved);
@@ -292,12 +292,12 @@ function App() {
     }
     setSelectedExperimentIds((prev) => {
       const next = prev.filter((id) =>
-        sidebarExperiments.some((experiment) => experiment.id === id)
+        sidebarExperiments.some((experiment) => experiment.experimentId === id)
       );
       if (next.length > 0) {
         return next;
       }
-      return [sidebarExperiments[0].id];
+      return [sidebarExperiments[0].experimentId];
     });
   }, [sidebarExperiments]);
 
@@ -305,8 +305,10 @@ function App() {
     setQuestionsByExperiment((prev) => {
       const next = { ...prev };
       sidebarExperiments.forEach((experiment) => {
-        if (!next[experiment.id]) {
-          next[experiment.id] = baseQuestions.map((question) => ({ ...question }));
+        if (!next[experiment.experimentId]) {
+          next[experiment.experimentId] = baseQuestions.map((question) => ({
+            ...question
+          }));
         }
       });
       return next;
@@ -318,12 +320,12 @@ function App() {
       setActiveQuestionId(null);
       return;
     }
-    const nextQuestion = questionsByExperiment[activeExperiment.id]?.find(
+    const nextQuestion = questionsByExperiment[activeExperiment.experimentId]?.find(
       (question) => !question.resolved
     );
     setActiveQuestionId(nextQuestion?.id ?? null);
     setSelectedAnswer(null);
-  }, [activeExperiment?.id, questionsByExperiment]);
+  }, [activeExperiment?.experimentId, questionsByExperiment]);
 
   useEffect(() => {
     setDataset((prev) => (prev ? { ...prev, audit: auditEntries } : prev));
@@ -425,13 +427,13 @@ function App() {
     }
 
     setQuestionsByExperiment((prev) => {
-      const nextQuestions = prev[activeExperiment.id].map((question) => {
+      const nextQuestions = prev[activeExperiment.experimentId].map((question) => {
         if (question.id !== activeQuestion.id) {
           return question;
         }
         return { ...question, resolved: true };
       });
-      return { ...prev, [activeExperiment.id]: nextQuestions };
+      return { ...prev, [activeExperiment.experimentId]: nextQuestions };
     });
 
     setAuditEntries((prev) => [
@@ -768,7 +770,7 @@ function App() {
             </div>
           )}
           {selectedExperiments.map((experiment) => (
-            <article key={experiment.id} className="comparison-card">
+            <article key={experiment.experimentId} className="comparison-card">
               <h3>{experiment.name}</h3>
               <p className="meta">{experiment.subtitle}</p>
               <div className="step-card">
@@ -968,13 +970,13 @@ function App() {
             </div>
             <ul className="experiment-list">
               {filteredExperiments.map((experiment) => {
-                const isSelected = selectedExperimentIds.includes(experiment.id);
+                const isSelected = selectedExperimentIds.includes(experiment.experimentId);
                 return (
-                  <li key={experiment.id}>
+                  <li key={experiment.experimentId}>
                     <button
                       type="button"
                       className={isSelected ? "selected" : ""}
-                      onClick={() => handleExperimentToggle(experiment.id)}
+                      onClick={() => handleExperimentToggle(experiment.experimentId)}
                     >
                       <div>
                         <h4>{experiment.name}</h4>

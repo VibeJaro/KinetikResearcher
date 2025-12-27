@@ -39,14 +39,15 @@ export const ValidationScreen = ({
           time: series.time,
           timeType
         });
+        const experimentName = experiment.name ?? "Untitled experiment";
         const spanSeconds =
           normalizedTime.length > 1
             ? Math.max(...normalizedTime) - Math.min(...normalizedTime)
             : 0;
 
         return {
-          experimentId: experiment.id,
-          experimentName: experiment.name,
+          experimentId: experiment.experimentId,
+          experimentName,
           seriesId: series.id,
           seriesName: series.name,
           timeType,

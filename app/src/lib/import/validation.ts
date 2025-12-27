@@ -57,7 +57,7 @@ const createSeriesFinding = (
   finding: Omit<ValidationFinding, "experimentId" | "experimentName" | "seriesId" | "seriesName">
 ): ValidationFinding => ({
   ...finding,
-  experimentId: experiment.id,
+  experimentId: experiment.experimentId,
   experimentName: experiment.name,
   seriesId: series.id,
   seriesName: series.name
@@ -290,9 +290,10 @@ export const generateImportValidationReport = (dataset: Dataset): ValidationRepo
     const findings = experiment.series.flatMap((series) =>
       getSeriesFindings(series, experiment)
     );
+    const experimentName = experiment.name ?? "Untitled experiment";
     return {
-      experimentId: experiment.id,
-      experimentName: experiment.name,
+      experimentId: experiment.experimentId,
+      experimentName,
       status: resolveStatus(findings),
       findings
     };

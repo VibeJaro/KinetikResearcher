@@ -1,22 +1,11 @@
+import type { Experiment, Series } from "../../types/experiment";
+export type { Experiment, Series };
+export { ensureMetaRaw, normalizeExperimentId } from "../../types/experiment";
+
 export type RawTable = {
   sheetName?: string;
   headers: string[];
   rows: (string | number | null)[][];
-};
-
-export type Series = {
-  id: string;
-  name: string;
-  time: number[];
-  y: number[];
-  meta?: Record<string, unknown>;
-};
-
-export type Experiment = {
-  id: string;
-  name: string;
-  raw?: unknown;
-  series: Series[];
 };
 
 export type AuditEntry = {

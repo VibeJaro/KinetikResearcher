@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Dataset, Experiment, Series } from "../lib/import/types";
+import { ensureMetaRaw } from "../lib/import/types";
 import {
   checkConstantSignal,
   checkNanOrNonNumeric,
@@ -19,11 +20,12 @@ const buildSeries = (overrides: Partial<Series> = {}): Series => ({
   ...overrides
 });
 
-const buildExperiment = (series: Series[]): Experiment => ({
-  id: "exp-1",
-  name: "Experiment 1",
-  series
-});
+const buildExperiment = (series: Series[]): Experiment =>
+  ensureMetaRaw({
+    experimentId: "exp-1",
+    name: "Experiment 1",
+    series
+  });
 
 describe("import validation checks", () => {
   it("flags non-monotonic time", () => {
