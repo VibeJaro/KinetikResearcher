@@ -3,6 +3,7 @@ import "./App.css";
 import { parseFile } from "./lib/import/parseFile";
 import { MappingPanel } from "./components/import/MappingPanel";
 import { ValidationScreen } from "./components/validation/ValidationScreen";
+import { GroupingScreen } from "./components/grouping/GroupingScreen";
 import {
   applyMappingToDataset,
   type MappingError,
@@ -44,6 +45,7 @@ type Question = {
 const steps = [
   "Import & Mapping",
   "Validation",
+  "Grouping",
   "Questions",
   "Modeling",
   "Diagnostics",
@@ -239,6 +241,23 @@ function App() {
       ),
     [selectedExperimentIds, sidebarExperiments]
   );
+
+  const structuralColumns = useMemo(() => {
+    if (!activeRawTable || !lastAppliedSelection) {
+      return [] as string[];
+    }
+    const headers = activeRawTable.headers;
+    const candidates = [
+      lastAppliedSelection.timeColumnIndex,
+      lastAppliedSelection.experimentColumnIndex,
+      lastAppliedSelection.replicateColumnIndex
+    ]
+      .filter((index): index is number => typeof index === "number" && index >= 0)
+      .map((index) => headers[index])
+      .filter((value, index, self) => Boolean(value) && self.indexOf(value) === index);
+
+    return candidates;
+  }, [activeRawTable, lastAppliedSelection]);
 
   const filteredExperiments = useMemo(() => {
     const query = searchValue.toLowerCase();
@@ -576,7 +595,7 @@ function App() {
     if (selectedExperiments.some((experiment) => experiment.status === "broken")) {
       return;
     }
-    setActiveStep("Questions");
+    setActiveStep("Grouping");
   };
 
   const handleContinueToValidation = () => {
@@ -742,6 +761,17 @@ function App() {
             Boolean(importReport?.status === "broken") ||
             selectedExperiments.some((experiment) => experiment.status === "broken")
           }
+        />
+      );
+    }
+
+    if (activeStep === "Grouping") {
+      return (
+        <GroupingScreen
+          experiments={importedExperiments}
+          columns={activeRawTable?.headers ?? []}
+          experimentCount={importReport?.counts.experiments ?? importedExperiments.length ?? null}
+          knownStructuralColumns={structuralColumns}
         />
       );
     }
