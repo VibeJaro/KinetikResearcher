@@ -13,6 +13,8 @@ export type Experiment = {
   metaRaw: Record<string, string | number | null>;
 };
 
+export type ExperimentMetaValue = string | number | null | undefined;
+
 export function normalizeExperimentId(x: unknown): string {
   const candidate = (x as { experimentId?: unknown; id?: unknown }) ?? {};
   return String(candidate.experimentId ?? candidate.id);

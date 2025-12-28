@@ -519,6 +519,88 @@
   font-weight: 600;
 }
 
+.normalize-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.normalize-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.normalize-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.normalize-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.normalize-review {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.normalize-review-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.normalize-group-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.normalize-group-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.output-box {
+  max-height: 240px;
+  overflow: auto;
+}
+
+.select-control {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14px;
+}
+
+.input-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.input-stack input,
+.input-stack textarea {
+  width: 100%;
+}
+
 .role-badge {
   padding: 4px 10px;
   border-radius: 999px;
