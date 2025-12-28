@@ -1,5 +1,6 @@
 import type { Experiment } from "../../types/experiment";
 import type { ColumnScanPayload } from "../../types/columnScan";
+import { CanonicalizationPanel } from "./CanonicalizationPanel";
 import { ColumnScanPanel } from "./ColumnScanPanel";
 
 type GroupingScreenProps = {
@@ -22,6 +23,9 @@ export const GroupingScreen = ({ experiments, columnScanPayload }: GroupingScree
       <div className="grouping-actions">
         <div className="experiment-card">
           <ColumnScanPanel payload={columnScanPayload} />
+        </div>
+        <div className="experiment-card">
+          <CanonicalizationPanel experiments={experiments} />
         </div>
       </div>
 

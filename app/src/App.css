@@ -333,6 +333,10 @@
   font-size: 12px;
 }
 
+.chip.muted {
+  color: #94a3b8;
+}
+
 .mapping-panel {
   border: 1px solid #e2e8f0;
   border-radius: 12px;
@@ -435,6 +439,137 @@
   flex-direction: column;
   gap: 16px;
   margin-bottom: 16px;
+}
+
+.canonicalization-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.canonicalization-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.canonicalization-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 200px;
+}
+
+.canonicalization-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chip-count {
+  margin-left: 6px;
+  color: #475569;
+  font-weight: 600;
+}
+
+.canonicalization-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.output-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.json-output-box {
+  border: 1px solid #cbd5f5;
+  background: #f8fafc;
+  border-radius: 10px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.json-output-header h6 {
+  margin: 0;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #475569;
+}
+
+.json-output-content {
+  margin: 0;
+  padding: 8px;
+  background: #0b172a;
+  color: #cbd5f5;
+  border-radius: 8px;
+  font-size: 12px;
+  max-height: 240px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+}
+
+.canonical-groups {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.canonical-groups-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.canonical-group {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.canonical-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.canonical-row.actions {
+  align-items: flex-end;
+}
+
+.aliases-textarea {
+  width: 100%;
+  min-height: 96px;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+}
+
+.canonicalization-confirm {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.error-text {
+  color: #b91c1c;
 }
 
 .column-scan-card {
