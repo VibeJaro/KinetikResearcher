@@ -7,6 +7,7 @@ export const config = {
 type ColumnScanBody = {
   experimentCount?: unknown;
   columns?: unknown;
+  smokeTest?: unknown;
 };
 
 type EchoShape = {
@@ -87,44 +88,145 @@ const logError = (requestId: string, error: unknown, fallbackMessage: string) =>
     error instanceof Error
       ? { message: error.message, stack: error.stack }
       : { message: fallbackMessage, stack: undefined };
-  console.error("[column-scan] error", { requestId, ...payload });
+  console.error("[column-scan] fail", { requestId, ...payload });
+};
+
+const hasOpenAIKey = (): boolean =>
+  typeof process.env.OPENAI_API_KEY === "string" && process.env.OPENAI_API_KEY.trim() !== "";
+
+const runOpenAiSmokeTest = async (apiKey: string) => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 25_000);
+  try {
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json"
+      },
+      signal: controller.signal,
+      body: JSON.stringify({
+        model: "gpt-5.2",
+        messages: [
+          {
+            role: "system",
+            content:
+              "Return strictly the JSON {\"ok\":true}. No explanations, no extra keys, no text."
+          },
+          { role: "user", content: "Respond with {\"ok\":true} only." }
+        ],
+        temperature: 0,
+        max_tokens: 20
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`status ${response.status}`);
+    }
+
+    const data = await response.json();
+    const content: string | undefined = data?.choices?.[0]?.message?.content;
+    if (!content) {
+      throw new Error("empty response");
+    }
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(content);
+    } catch {
+      throw new Error("non-JSON content");
+    }
+
+    if (typeof parsed !== "object" || parsed === null || (parsed as any).ok !== true) {
+      throw new Error("unexpected payload");
+    }
+
+    return { ok: true as const };
+  } finally {
+    clearTimeout(timeout);
+  }
 };
 
 export default async function handler(req: any, res: any) {
   const requestId = createRequestId();
   console.info("[column-scan] start", { requestId, method: req.method });
 
-  if (req.method !== "POST") {
-    logError(requestId, null, "Method Not Allowed");
-    console.info("[column-scan] payload", { requestId, experimentCount: null, colCount: null });
-    return sendJson(res, 405, {
+  try {
+    if (req.method !== "POST") {
+      logError(requestId, null, "Method Not Allowed");
+      console.info("[column-scan] payload", {
+        requestId,
+        experimentCount: null,
+        colCount: null
+      });
+      return sendJson(res, 405, {
+        ok: false,
+        error: "Method Not Allowed",
+        requestId
+      });
+    }
+
+    const parsed = await parseBody(req);
+    if (!parsed.ok || typeof parsed.body !== "object" || parsed.body === null) {
+      logError(requestId, parsed.ok ? null : parsed.error, "Invalid JSON body");
+      console.info("[column-scan] payload", {
+        requestId,
+        experimentCount: null,
+        colCount: null
+      });
+      return sendJson(res, 400, {
+        ok: false,
+        error: "Invalid JSON body",
+        requestId
+      });
+    }
+
+    const echo = toEcho(parsed.body);
+    console.info("[column-scan] payload", {
+      requestId,
+      experimentCount: echo.experimentCount,
+      colCount: echo.colCount
+    });
+
+    const keyAvailable = hasOpenAIKey();
+    console.info("[column-scan] env", { requestId, hasKey: keyAvailable });
+
+    if (!keyAvailable) {
+      logError(requestId, null, "Missing OPENAI_API_KEY");
+      return sendJson(res, 500, {
+        ok: false,
+        error: "Missing OPENAI_API_KEY",
+        requestId
+      });
+    }
+
+    if (parsed.body.smokeTest === true) {
+      try {
+        await runOpenAiSmokeTest(process.env.OPENAI_API_KEY as string);
+        return sendJson(res, 200, { ok: true, requestId, smokeTest: true });
+      } catch (error) {
+        logError(requestId, error, "OpenAI call failed");
+        const message = error instanceof Error ? error.message : "OpenAI call failed";
+        return sendJson(res, 502, {
+          ok: false,
+          error: "OpenAI call failed",
+          requestId,
+          details: message
+        });
+      }
+    }
+
+    return sendJson(res, 200, {
+      ok: true,
+      requestId,
+      echo
+    });
+  } catch (error) {
+    logError(requestId, error, "Internal Server Error");
+    return sendJson(res, 500, {
       ok: false,
-      error: "Method Not Allowed",
+      error: "Internal Server Error",
       requestId
     });
   }
-
-  const parsed = await parseBody(req);
-  if (!parsed.ok || typeof parsed.body !== "object" || parsed.body === null) {
-    logError(requestId, parsed.ok ? null : parsed.error, "Invalid JSON body");
-    console.info("[column-scan] payload", { requestId, experimentCount: null, colCount: null });
-    return sendJson(res, 400, {
-      ok: false,
-      error: "Invalid JSON body",
-      requestId
-    });
-  }
-
-  const echo = toEcho(parsed.body);
-  console.info("[column-scan] payload", {
-    requestId,
-    experimentCount: echo.experimentCount,
-    colCount: echo.colCount
-  });
-
-  return sendJson(res, 200, {
-    ok: true,
-    requestId,
-    echo
-  });
 }
