@@ -552,6 +552,44 @@
   gap: 4px;
 }
 
+.column-scan-debug {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.debug-box {
+  border: 1px solid #cbd5f5;
+  background: #f8fafc;
+  border-radius: 10px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.debug-box h6 {
+  margin: 0;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #475569;
+}
+
+.debug-box pre {
+  margin: 0;
+  padding: 8px;
+  background: #0b172a;
+  color: #cbd5f5;
+  border-radius: 8px;
+  font-size: 12px;
+  max-height: 240px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .mapping-anchor:focus {
   outline: 2px solid #1d4ed8;
   outline-offset: 6px;

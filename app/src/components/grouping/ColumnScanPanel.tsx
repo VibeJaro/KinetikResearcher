@@ -22,6 +22,8 @@ export const ColumnScanPanel = ({ payload }: ColumnScanPanelProps) => {
   const [requestId, setRequestId] = useState<string | null>(null);
   const [result, setResult] = useState<ColumnScanResult | null>(null);
   const [selectedColumnsFinal, setSelectedColumnsFinal] = useState<string[]>([]);
+  const [lastPayload, setLastPayload] = useState<Record<string, unknown> | null>(null);
+  const [lastModelOutput, setLastModelOutput] = useState<string | null>(null);
 
   useEffect(() => {
     setResult(null);
@@ -29,6 +31,8 @@ export const ColumnScanPanel = ({ payload }: ColumnScanPanelProps) => {
     setError(null);
     setErrorDetails(null);
     setRequestId(null);
+    setLastPayload(null);
+    setLastModelOutput(null);
   }, [payload]);
 
   useEffect(() => {
@@ -61,16 +65,20 @@ export const ColumnScanPanel = ({ payload }: ColumnScanPanelProps) => {
     setErrorDetails(null);
     setResult(null);
     setRequestId(null);
+    setLastModelOutput(null);
     try {
+      const requestPayload = {
+        columns: payload.columns,
+        experimentCount: payload.experimentCount ?? undefined,
+        knownStructuralColumns: payload.knownStructuralColumns,
+        includeComments
+      };
+      setLastPayload(requestPayload);
+
       const response = await fetch("/api/column-scan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          columns: payload.columns,
-          experimentCount: payload.experimentCount ?? undefined,
-          knownStructuralColumns: payload.knownStructuralColumns,
-          includeComments
-        })
+        body: JSON.stringify(requestPayload)
       });
 
       const contentType = response.headers.get("content-type");
@@ -84,6 +92,8 @@ export const ColumnScanPanel = ({ payload }: ColumnScanPanelProps) => {
 
       const responseRequestId = data?.requestId ?? null;
       setRequestId(responseRequestId);
+      const modelOutput = data?.debug?.modelOutput ?? data?.modelOutputPreview ?? null;
+      setLastModelOutput(typeof modelOutput === "string" ? modelOutput : rawText);
 
       if (!response.ok || !data?.ok) {
         setError(data?.error ?? "Column scan failed");
@@ -99,6 +109,9 @@ export const ColumnScanPanel = ({ payload }: ColumnScanPanelProps) => {
       }
 
       setResult(data.result as ColumnScanResult);
+      if (typeof data.debug?.modelOutput === "string") {
+        setLastModelOutput(data.debug.modelOutput);
+      }
     } catch (err) {
       setError("Column scan failed");
       setErrorDetails(err instanceof Error ? err.message : "Unexpected error");
@@ -197,6 +210,23 @@ export const ColumnScanPanel = ({ payload }: ColumnScanPanelProps) => {
                 <li key={item}>{item}</li>
               ))}
             </ul>
+          )}
+        </div>
+      )}
+
+      {(lastPayload || lastModelOutput) && (
+        <div className="column-scan-debug">
+          {lastPayload && (
+            <div className="debug-box">
+              <h6>LLM input</h6>
+              <pre>{JSON.stringify(lastPayload, null, 2)}</pre>
+            </div>
+          )}
+          {lastModelOutput && (
+            <div className="debug-box">
+              <h6>LLM response</h6>
+              <pre>{lastModelOutput}</pre>
+            </div>
           )}
         </div>
       )}

@@ -392,7 +392,8 @@ export default async function handler(req: any, res: any) {
         ok: false,
         error: "Invalid model output",
         requestId,
-        details: "OpenAI call failed"
+        details: "OpenAI call failed",
+        modelOutputPreview: rawModelOutput ? rawModelOutput.slice(0, 500) : undefined
       });
     } finally {
       clearTimeout(timeout);
@@ -411,7 +412,8 @@ export default async function handler(req: any, res: any) {
         ok: false,
         error: "Invalid model output",
         requestId,
-        details: "JSON parse failed"
+        details: "JSON parse failed",
+        modelOutputPreview: rawModelOutput.slice(0, 500)
       });
     }
 
@@ -425,7 +427,8 @@ export default async function handler(req: any, res: any) {
         ok: false,
         error: "Invalid model output",
         requestId,
-        details: "Validation failed"
+        details: "Validation failed",
+        modelOutputPreview: rawModelOutput.slice(0, 500)
       });
     }
 
@@ -437,7 +440,11 @@ export default async function handler(req: any, res: any) {
     return sendJson(res, 200, {
       ok: true,
       requestId,
-      result: validatedModel.value
+      result: validatedModel.value,
+      debug: {
+        modelInput: { system, user },
+        modelOutput: rawModelOutput.slice(0, 2000)
+      }
     });
   } catch (error) {
     logError(requestId, error, "Internal Server Error");
