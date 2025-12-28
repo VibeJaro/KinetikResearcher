@@ -24,6 +24,7 @@ export const ColumnScanPanel = ({ payload }: ColumnScanPanelProps) => {
   const [selectedColumnsFinal, setSelectedColumnsFinal] = useState<string[]>([]);
   const [lastPayload, setLastPayload] = useState<Record<string, unknown> | null>(null);
   const [lastModelOutput, setLastModelOutput] = useState<string | null>(null);
+  const [lastPrompt, setLastPrompt] = useState<{ system?: string; user?: string } | null>(null);
 
   useEffect(() => {
     setResult(null);
@@ -33,6 +34,7 @@ export const ColumnScanPanel = ({ payload }: ColumnScanPanelProps) => {
     setRequestId(null);
     setLastPayload(null);
     setLastModelOutput(null);
+    setLastPrompt(null);
   }, [payload]);
 
   useEffect(() => {
@@ -66,6 +68,7 @@ export const ColumnScanPanel = ({ payload }: ColumnScanPanelProps) => {
     setResult(null);
     setRequestId(null);
     setLastModelOutput(null);
+    setLastPrompt(null);
     try {
       const requestPayload = {
         columns: payload.columns,
@@ -94,6 +97,12 @@ export const ColumnScanPanel = ({ payload }: ColumnScanPanelProps) => {
       setRequestId(responseRequestId);
       const modelOutput = data?.debug?.modelOutput ?? data?.modelOutputPreview ?? null;
       setLastModelOutput(typeof modelOutput === "string" ? modelOutput : rawText);
+      if (data?.debug?.modelInput) {
+        setLastPrompt({
+          system: data.debug.modelInput.system,
+          user: data.debug.modelInput.user
+        });
+      }
 
       if (!response.ok || !data?.ok) {
         setError(data?.error ?? "Column scan failed");
@@ -111,6 +120,12 @@ export const ColumnScanPanel = ({ payload }: ColumnScanPanelProps) => {
       setResult(data.result as ColumnScanResult);
       if (typeof data.debug?.modelOutput === "string") {
         setLastModelOutput(data.debug.modelOutput);
+      }
+      if (data?.debug?.modelInput) {
+        setLastPrompt({
+          system: data.debug.modelInput.system,
+          user: data.debug.modelInput.user
+        });
       }
     } catch (err) {
       setError("Column scan failed");
@@ -216,6 +231,14 @@ export const ColumnScanPanel = ({ payload }: ColumnScanPanelProps) => {
 
       {(lastPayload || lastModelOutput) && (
         <div className="column-scan-debug">
+          {lastPrompt && (
+            <div className="debug-box">
+              <h6>LLM prompt (system)</h6>
+              <pre>{lastPrompt.system ?? "n/a"}</pre>
+              <h6>LLM prompt (user)</h6>
+              <pre>{lastPrompt.user ?? "n/a"}</pre>
+            </div>
+          )}
           {lastPayload && (
             <div className="debug-box">
               <h6>LLM input</h6>

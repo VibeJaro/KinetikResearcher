@@ -393,7 +393,11 @@ export default async function handler(req: any, res: any) {
         error: "Invalid model output",
         requestId,
         details: "OpenAI call failed",
-        modelOutputPreview: rawModelOutput ? rawModelOutput.slice(0, 500) : undefined
+        modelOutputPreview: rawModelOutput ? rawModelOutput.slice(0, 500) : undefined,
+        debug: {
+          modelInput: { system, user },
+          modelOutput: rawModelOutput.slice(0, 2000)
+        }
       });
     } finally {
       clearTimeout(timeout);
@@ -413,7 +417,11 @@ export default async function handler(req: any, res: any) {
         error: "Invalid model output",
         requestId,
         details: "JSON parse failed",
-        modelOutputPreview: rawModelOutput.slice(0, 500)
+        modelOutputPreview: rawModelOutput.slice(0, 500),
+        debug: {
+          modelInput: { system, user },
+          modelOutput: rawModelOutput.slice(0, 2000)
+        }
       });
     }
 
@@ -428,7 +436,11 @@ export default async function handler(req: any, res: any) {
         error: "Invalid model output",
         requestId,
         details: "Validation failed",
-        modelOutputPreview: rawModelOutput.slice(0, 500)
+        modelOutputPreview: rawModelOutput.slice(0, 500),
+        debug: {
+          modelInput: { system, user },
+          modelOutput: rawModelOutput.slice(0, 2000)
+        }
       });
     }
 
