@@ -1,6 +1,9 @@
 import type { Experiment } from "../../types/experiment";
 import type { ColumnScanPayload } from "../../types/columnScan";
 import { ColumnScanPanel } from "./ColumnScanPanel";
+import { CanonicalizationPanel } from "./canonicalization/CanonicalizationPanel";
+import { useMemo } from "react";
+import { useCanonicalMap } from "./canonicalization/useCanonicalMap";
 
 type GroupingScreenProps = {
   experiments: Experiment[];
@@ -8,9 +11,27 @@ type GroupingScreenProps = {
 };
 
 export const GroupingScreen = ({ experiments, columnScanPayload }: GroupingScreenProps) => {
+  const { map: canonicalMaps, updateMap } = useCanonicalMap({});
+
   if (import.meta.env.DEV) {
     console.info("[grouping] first experiment shape", experiments?.[0]);
   }
+
+  const relevantColumns = useMemo(() => {
+    if (columnScanPayload && columnScanPayload.columns.length > 0) {
+      return columnScanPayload.columns.map((column) => column.name);
+    }
+    return [
+      "Catalyst_used",
+      "Solvent",
+      "Temperature",
+      "Pressure",
+      "Run_ID",
+      "Substrate",
+      "Additive",
+      "Batch"
+    ];
+  }, [columnScanPayload]);
 
   return (
     <section className="grouping-screen">
@@ -22,6 +43,14 @@ export const GroupingScreen = ({ experiments, columnScanPayload }: GroupingScree
       <div className="grouping-actions">
         <div className="experiment-card">
           <ColumnScanPanel payload={columnScanPayload} />
+        </div>
+        <div className="experiment-card">
+          <CanonicalizationPanel
+            experiments={experiments}
+            columnOptions={relevantColumns}
+            savedMap={canonicalMaps}
+            onMapChange={updateMap}
+          />
         </div>
       </div>
 

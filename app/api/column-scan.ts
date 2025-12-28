@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import OpenAI from "openai";
+import { createChatCompletion, OpenAIError } from "./openai-client";
 
 export const config = {
   runtime: "nodejs"
@@ -364,7 +364,6 @@ export default async function handler(req: any, res: any) {
       });
     }
 
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const { system, user } = buildPrompt(validated.value);
 
     const controller = new AbortController();
@@ -387,18 +386,19 @@ export default async function handler(req: any, res: any) {
     }
 
     try {
-      const completion = await openai.chat.completions.create(
-        openAiRequest,
-        { signal: controller.signal }
-      );
-      rawModelOutput = completion.choices?.[0]?.message?.content ?? "";
+      const completion = await createChatCompletion(openAiRequest, controller.signal);
+      rawModelOutput = completion.content;
     } catch (error: any) {
-      const status = typeof error?.status === "number" ? error.status : undefined;
+      const status =
+        error instanceof OpenAIError && typeof error.status === "number"
+          ? error.status
+          : undefined;
       const message = error instanceof Error ? error.message : "OpenAI call failed";
       console.error("[column-scan] openai failure", {
         requestId,
         status,
         message,
+        details: error instanceof OpenAIError ? error.details : undefined,
         stack: error?.stack
       });
       logError(requestId, error, "OpenAI call failed");
@@ -406,7 +406,10 @@ export default async function handler(req: any, res: any) {
         ok: false,
         error: "OpenAI call failed",
         requestId,
-        details: status ? `${status} ${message}` : message,
+        details:
+          status || (error instanceof OpenAIError && error.details)
+            ? `${status ?? ""} ${error.details ?? message}`.trim()
+            : message,
         debug: {
           modelInput: { system, user },
           modelOutput: rawModelOutput.slice(0, 2000),
