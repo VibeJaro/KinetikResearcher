@@ -7,6 +7,7 @@ export const config = {
 type ColumnScanBody = {
   experimentCount?: unknown;
   columns?: unknown;
+  smokeTest?: unknown;
 };
 
 type EchoShape = {
@@ -87,44 +88,122 @@ const logError = (requestId: string, error: unknown, fallbackMessage: string) =>
     error instanceof Error
       ? { message: error.message, stack: error.stack }
       : { message: fallbackMessage, stack: undefined };
-  console.error("[column-scan] error", { requestId, ...payload });
+  console.error("[column-scan] fail", { requestId, ...payload });
+};
+
+const runSmokeTest = async (apiKey: string): Promise<{ ok: true } | { ok: false; details: string }> => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 25000);
+
+  try {
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "gpt-5.2",
+        messages: [
+          { role: "system", content: "Return only the JSON object {\"ok\": true}." },
+          { role: "user", content: "Reply with exactly: {\"ok\": true}" }
+        ],
+        max_tokens: 16,
+        temperature: 0
+      }),
+      signal: controller.signal
+    });
+
+    if (!response.ok) {
+      return { ok: false, details: `${response.status} ${response.statusText}` };
+    }
+
+    return { ok: true };
+  } catch (error) {
+    const details = error instanceof Error ? error.message : "Unknown error";
+    return { ok: false, details };
+  } finally {
+    clearTimeout(timeout);
+  }
 };
 
 export default async function handler(req: any, res: any) {
   const requestId = createRequestId();
   console.info("[column-scan] start", { requestId, method: req.method });
 
-  if (req.method !== "POST") {
-    logError(requestId, null, "Method Not Allowed");
-    console.info("[column-scan] payload", { requestId, experimentCount: null, colCount: null });
-    return sendJson(res, 405, {
+  try {
+    if (req.method !== "POST") {
+      logError(requestId, null, "Method Not Allowed");
+      console.info("[column-scan] payload", { requestId, experimentCount: null, colCount: null });
+      return sendJson(res, 405, {
+        ok: false,
+        error: "Method Not Allowed",
+        requestId
+      });
+    }
+
+    const parsed = await parseBody(req);
+    if (!parsed.ok || typeof parsed.body !== "object" || parsed.body === null) {
+      logError(requestId, parsed.ok ? null : parsed.error, "Invalid JSON body");
+      console.info("[column-scan] payload", { requestId, experimentCount: null, colCount: null });
+      return sendJson(res, 400, {
+        ok: false,
+        error: "Invalid JSON body",
+        requestId
+      });
+    }
+
+    const echo = toEcho(parsed.body);
+    console.info("[column-scan] payload", {
+      requestId,
+      experimentCount: echo.experimentCount,
+      colCount: echo.colCount
+    });
+
+    const hasKey =
+      typeof process?.env?.OPENAI_API_KEY === "string" &&
+      process.env.OPENAI_API_KEY.trim().length > 0;
+    console.info("[column-scan] env", { requestId, hasKey });
+
+    if (!hasKey) {
+      logError(requestId, null, "Missing OPENAI_API_KEY");
+      return sendJson(res, 500, {
+        ok: false,
+        error: "Missing OPENAI_API_KEY",
+        requestId
+      });
+    }
+
+    if (parsed.body.smokeTest === true) {
+      const smoke = await runSmokeTest(process.env.OPENAI_API_KEY);
+      if (!smoke.ok) {
+        logError(requestId, new Error(smoke.details), "OpenAI call failed");
+        return sendJson(res, 502, {
+          ok: false,
+          error: "OpenAI call failed",
+          requestId,
+          details: smoke.details
+        });
+      }
+
+      return sendJson(res, 200, {
+        ok: true,
+        requestId,
+        smokeTest: true
+      });
+    }
+
+    return sendJson(res, 200, {
+      ok: true,
+      requestId,
+      echo
+    });
+  } catch (error) {
+    logError(requestId, error, "Internal Server Error");
+    return sendJson(res, 500, {
       ok: false,
-      error: "Method Not Allowed",
+      error: "Internal Server Error",
       requestId
     });
   }
-
-  const parsed = await parseBody(req);
-  if (!parsed.ok || typeof parsed.body !== "object" || parsed.body === null) {
-    logError(requestId, parsed.ok ? null : parsed.error, "Invalid JSON body");
-    console.info("[column-scan] payload", { requestId, experimentCount: null, colCount: null });
-    return sendJson(res, 400, {
-      ok: false,
-      error: "Invalid JSON body",
-      requestId
-    });
-  }
-
-  const echo = toEcho(parsed.body);
-  console.info("[column-scan] payload", {
-    requestId,
-    experimentCount: echo.experimentCount,
-    colCount: echo.colCount
-  });
-
-  return sendJson(res, 200, {
-    ok: true,
-    requestId,
-    echo
-  });
 }

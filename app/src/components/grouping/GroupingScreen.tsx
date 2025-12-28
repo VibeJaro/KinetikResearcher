@@ -13,8 +13,8 @@ export type ColumnScanPayload = {
 };
 
 type ColumnScanStatus =
-  | { kind: "success"; requestId: string }
-  | { kind: "error"; requestId: string; message?: string }
+  | { kind: "success"; requestId: string; smokeTest?: boolean }
+  | { kind: "error"; requestId: string; message?: string; details?: string }
   | null;
 
 type GroupingScreenProps = {
@@ -36,17 +36,23 @@ export const GroupingScreen = ({ experiments, columnScanPayload }: GroupingScree
     setColumnScanStatus(null);
   }, [columnScanPayload]);
 
-  const handleColumnScan = async () => {
+  const triggerColumnScan = async (options?: { smokeTest?: boolean }) => {
     if (!columnScanPayload) {
       return;
     }
+
+    const requestBody =
+      options?.smokeTest === true
+        ? { ...columnScanPayload, smokeTest: true }
+        : { ...columnScanPayload };
+
     setIsScanning(true);
     setColumnScanStatus(null);
     try {
       const response = await fetch("/api/column-scan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(columnScanPayload)
+        body: JSON.stringify(requestBody)
       });
 
       let data: any = null;
@@ -56,17 +62,20 @@ export const GroupingScreen = ({ experiments, columnScanPayload }: GroupingScree
         // keep data as null if JSON parsing fails
       }
       const requestId = data?.requestId ?? "n/a";
+      const details = typeof data?.details === "string" ? data.details : undefined;
+      const message = data?.error ?? response.statusText;
 
       if (!response.ok || !data?.ok) {
         setColumnScanStatus({
           kind: "error",
           requestId,
-          message: data?.error ?? response.statusText
+          message,
+          details
         });
         return;
       }
 
-      setColumnScanStatus({ kind: "success", requestId });
+      setColumnScanStatus({ kind: "success", requestId, smokeTest: data?.smokeTest === true });
     } catch (error) {
       setColumnScanStatus({
         kind: "error",
@@ -101,11 +110,21 @@ export const GroupingScreen = ({ experiments, columnScanPayload }: GroupingScree
             <button
               type="button"
               className="primary"
-              onClick={() => void handleColumnScan()}
+              onClick={() => void triggerColumnScan()}
               disabled={!columnScanPayload || isScanning}
             >
               {isScanning ? "Sending..." : "Ping column scan"}
             </button>
+            {import.meta.env.DEV && (
+              <button
+                type="button"
+                className="ghost"
+                onClick={() => void triggerColumnScan({ smokeTest: true })}
+                disabled={!columnScanPayload || isScanning}
+              >
+                {isScanning ? "Sending..." : "Run OpenAI smoke test"}
+              </button>
+            )}
           </div>
           {columnScanPayload ? (
             <div className="column-scan-meta">
@@ -137,10 +156,15 @@ export const GroupingScreen = ({ experiments, columnScanPayload }: GroupingScree
           {columnScanStatus?.kind === "success" && (
             <div className="inline-success">
               <p className="success-title">
-                Column scan ping OK (requestId: {columnScanStatus.requestId})
+                {columnScanStatus.smokeTest
+                  ? "OpenAI smoke test OK"
+                  : "Column scan ping OK"}{" "}
+                (requestId: {columnScanStatus.requestId})
               </p>
               <p className="meta">
-                The serverless route responded with the expected JSON payload.
+                {columnScanStatus.smokeTest
+                  ? "The column scan route verified OpenAI connectivity with a minimal JSON response."
+                  : "The serverless route responded with the expected JSON payload."}
               </p>
             </div>
           )}
@@ -151,6 +175,9 @@ export const GroupingScreen = ({ experiments, columnScanPayload }: GroupingScree
                 Column scan ping failed (requestId: {columnScanStatus.requestId})
               </p>
               {columnScanStatus.message && <p className="meta">{columnScanStatus.message}</p>}
+              {columnScanStatus.details && (
+                <p className="meta">Details: {columnScanStatus.details}</p>
+              )}
             </div>
           )}
         </div>
