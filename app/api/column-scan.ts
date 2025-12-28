@@ -1,29 +1,48 @@
 import { randomUUID } from "crypto";
+import OpenAI from "openai";
+import { z } from "zod";
 
 export const config = {
   runtime: "nodejs"
 };
 
-type ColumnScanBody = {
-  experimentCount?: unknown;
-  columns?: unknown;
-  smokeTest?: unknown;
-};
+type ColumnRole = "condition" | "comment" | "noise";
 
-type EchoShape = {
-  experimentCount: number | null;
-  colCount: number | null;
-};
+const columnSchema = z
+  .object({
+    name: z.string().min(1).transform((value) => value.trim()),
+    typeHeuristic: z.enum(["numeric", "text", "mixed"]),
+    nonNullRatio: z.number().min(0).max(1),
+    examples: z
+      .array(z.string().transform((value) => value.slice(0, 120)))
+      .max(10)
+      .optional()
+  })
+  .strict();
 
-const createRequestId = (): string => {
-  try {
-    return randomUUID();
-  } catch {
-    return `req-${Math.random().toString(36).slice(2, 10)}`;
-  }
-};
+const requestSchema = z
+  .object({
+    columns: z.array(columnSchema).min(1).max(500),
+    experimentCount: z.number().finite().optional(),
+    knownStructuralColumns: z.array(z.string().min(1)).optional().default([]),
+    includeComments: z.boolean().optional().default(false)
+  })
+  .strict();
 
-const sendJson = (res: any, statusCode: number, payload: Record<string, unknown>) => {
+const modelOutputSchema = z
+  .object({
+    selectedColumns: z.array(z.string().min(1)).max(8),
+    columnRoles: z.record(z.enum(["condition", "comment", "noise"])),
+    factorCandidates: z.array(z.string().min(1)).max(12),
+    notes: z.string().max(400),
+    uncertainties: z.array(z.string().min(1).max(160)).max(8)
+  })
+  .strict();
+
+type ValidRequest = z.infer<typeof requestSchema>;
+type ModelOutput = z.infer<typeof modelOutputSchema>;
+
+const jsonResponse = (res: any, statusCode: number, payload: Record<string, unknown>) => {
   if (typeof res.status === "function") {
     res.status(statusCode);
   } else {
@@ -41,49 +60,53 @@ const sendJson = (res: any, statusCode: number, payload: Record<string, unknown>
   }
 };
 
-const parseBody = async (
-  req: any
-): Promise<{ ok: true; body: ColumnScanBody } | { ok: false; error?: unknown }> => {
+const createRequestId = (): string => {
   try {
-    if (req.body !== undefined && req.body !== null) {
-      if (typeof req.body === "string") {
-        return { ok: true, body: JSON.parse(req.body) };
-      }
-      if (Buffer.isBuffer(req.body)) {
-        return { ok: true, body: JSON.parse(req.body.toString("utf8")) };
-      }
-      if (typeof req.body === "object") {
-        return { ok: true, body: req.body };
-      }
-    }
-
-    const chunks: Buffer[] = [];
-    for await (const chunk of req) {
-      if (typeof chunk === "string") {
-        chunks.push(Buffer.from(chunk));
-      } else {
-        chunks.push(chunk);
-      }
-    }
-    if (chunks.length === 0) {
-      return { ok: false };
-    }
-    const raw = Buffer.concat(chunks).toString("utf8");
-    return { ok: true, body: JSON.parse(raw) };
-  } catch (error) {
-    return { ok: false, error };
+    return randomUUID();
+  } catch {
+    return `req-${Math.random().toString(36).slice(2, 10)}`;
   }
 };
 
-const toEcho = (body: ColumnScanBody): EchoShape => {
-  const experimentCount =
-    typeof body.experimentCount === "number" ? body.experimentCount : null;
-  const columns = Array.isArray(body.columns) ? body.columns : null;
-  const colCount = columns ? columns.length : null;
-  return { experimentCount, colCount };
+const readRequestBody = async (req: any): Promise<unknown> => {
+  if (req.body !== undefined && req.body !== null) {
+    if (typeof req.body === "string") {
+      return JSON.parse(req.body);
+    }
+    if (Buffer.isBuffer(req.body)) {
+      return JSON.parse(req.body.toString("utf8"));
+    }
+    if (typeof req.body === "object") {
+      return req.body;
+    }
+  }
+
+  const chunks: Buffer[] = [];
+  for await (const chunk of req) {
+    chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
+  }
+  if (chunks.length === 0) {
+    return null;
+  }
+  const raw = Buffer.concat(chunks).toString("utf8");
+  return JSON.parse(raw);
 };
 
-const logError = (requestId: string, error: unknown, fallbackMessage: string) => {
+const logStart = (payload: {
+  requestId: string;
+  method: string | undefined;
+  colCount: number | null;
+  experimentCount: number | null;
+  includeComments: boolean;
+}) => {
+  console.info("[column-scan] start", payload);
+};
+
+const logSuccess = (requestId: string, selectedCount: number) => {
+  console.info("[column-scan] success", { requestId, selectedColumns: selectedCount });
+};
+
+const logFailure = (requestId: string, error: unknown, fallbackMessage: string) => {
   const payload =
     error instanceof Error
       ? { message: error.message, stack: error.stack }
@@ -91,142 +114,275 @@ const logError = (requestId: string, error: unknown, fallbackMessage: string) =>
   console.error("[column-scan] fail", { requestId, ...payload });
 };
 
-const hasOpenAIKey = (): boolean =>
-  typeof process.env.OPENAI_API_KEY === "string" && process.env.OPENAI_API_KEY.trim() !== "";
-
-const runOpenAiSmokeTest = async (apiKey: string) => {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 25_000);
-  try {
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json"
-      },
-      signal: controller.signal,
-      body: JSON.stringify({
-        model: "gpt-5.2",
-        messages: [
-          {
-            role: "system",
-            content:
-              "Return strictly the JSON {\"ok\":true}. No explanations, no extra keys, no text."
-          },
-          { role: "user", content: "Respond with {\"ok\":true} only." }
-        ],
-        temperature: 0,
-        max_tokens: 20
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error(`status ${response.status}`);
-    }
-
-    const data = await response.json();
-    const content: string | undefined = data?.choices?.[0]?.message?.content;
-    if (!content) {
-      throw new Error("empty response");
-    }
-
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(content);
-    } catch {
-      throw new Error("non-JSON content");
-    }
-
-    if (typeof parsed !== "object" || parsed === null || (parsed as any).ok !== true) {
-      throw new Error("unexpected payload");
-    }
-
-    return { ok: true as const };
-  } finally {
-    clearTimeout(timeout);
+const ensureOpenAIClient = (apiKey: string | undefined) => {
+  if (!apiKey || apiKey.trim() === "") {
+    return null;
   }
+  return new OpenAI({ apiKey });
+};
+
+const toJsonSchema = {
+  name: "column_scan_result",
+  schema: {
+    type: "object",
+    properties: {
+      selectedColumns: {
+        type: "array",
+        items: { type: "string", minLength: 1 },
+        maxItems: 8
+      },
+      columnRoles: {
+        type: "object",
+        additionalProperties: {
+          type: "string",
+          enum: ["condition", "comment", "noise"]
+        }
+      },
+      factorCandidates: {
+        type: "array",
+        items: { type: "string", minLength: 1 },
+        maxItems: 12
+      },
+      notes: { type: "string", maxLength: 400 },
+      uncertainties: {
+        type: "array",
+        items: { type: "string", minLength: 1, maxLength: 160 },
+        maxItems: 8
+      }
+    },
+    required: ["selectedColumns", "columnRoles", "factorCandidates", "notes", "uncertainties"],
+    additionalProperties: false
+  },
+  strict: true
+} as const;
+
+const uniqueList = (values: string[]): string[] => {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  values.forEach((value) => {
+    const trimmed = value.trim();
+    if (trimmed && !seen.has(trimmed)) {
+      seen.add(trimmed);
+      result.push(trimmed);
+    }
+  });
+  return result;
+};
+
+const validateModelOutput = (
+  output: unknown,
+  requestColumns: string[]
+): { ok: true; data: ModelOutput } | { ok: false; message: string } => {
+  const parsed = modelOutputSchema.safeParse(output);
+  if (!parsed.success) {
+    return { ok: false, message: parsed.error.message };
+  }
+
+  const selected = uniqueList(parsed.data.selectedColumns).slice(0, 8);
+  if (selected.some((column) => !requestColumns.includes(column))) {
+    return { ok: false, message: "Selected columns must come from the provided columns list." };
+  }
+
+  const roleNames = Object.keys(parsed.data.columnRoles);
+  if (roleNames.some((name) => !requestColumns.includes(name))) {
+    return { ok: false, message: "Column roles must only reference provided columns." };
+  }
+
+  return {
+    ok: true,
+    data: {
+      ...parsed.data,
+      selectedColumns: selected,
+      factorCandidates: uniqueList(parsed.data.factorCandidates).slice(0, 12),
+      uncertainties: parsed.data.uncertainties.slice(0, 8)
+    }
+  };
+};
+
+const buildPrompt = (body: ValidRequest): string => {
+  const conditionPreference =
+    "Focus on experimental condition columns (catalyst, additive, solvent, temp, batch, etc.). Avoid structural columns unless necessary.";
+  const commentsRule = body.includeComments
+    ? "Include comment-like columns when they add context, but label them with role \"comment\"."
+    : "Avoid selecting comment-like columns unless essential; if included, mark their role as \"comment\".";
+  const knownStructural =
+    body.knownStructuralColumns.length > 0
+      ? `Known structural columns to avoid: ${body.knownStructuralColumns.join(", ")}.`
+      : "No explicit structural columns provided.";
+
+  return [
+    "You are selecting up to 8 columns to keep for kinetic experiment grouping.",
+    conditionPreference,
+    commentsRule,
+    knownStructural,
+    "Use the provided column summaries (type heuristic, non-null ratio, short examples).",
+    "Return ONLY the JSON defined by the schema. Do not invent keys or markdown."
+  ].join("\n");
+};
+
+const requestColumnsFromBody = (body: ValidRequest): string[] =>
+  body.columns.map((column) => column.name);
+
+const callOpenAI = async (client: OpenAI, body: ValidRequest, signal: AbortSignal) => {
+  const completion = await client.chat.completions.create(
+    {
+      model: "gpt-5.2",
+      temperature: 0,
+      max_tokens: 600,
+      response_format: { type: "json_schema", json_schema: toJsonSchema },
+      messages: [
+        {
+          role: "system",
+          content: buildPrompt(body)
+        },
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  experimentCount: body.experimentCount ?? null,
+                  includeComments: body.includeComments,
+                  knownStructuralColumns: body.knownStructuralColumns,
+                  columns: body.columns
+                },
+                null,
+                2
+              )
+            }
+          ]
+        }
+      ]
+    },
+    { signal }
+  );
+
+  const content = completion.choices[0]?.message?.content;
+  if (!content || typeof content !== "string") {
+    throw new Error("Empty model output");
+  }
+  return content;
 };
 
 export default async function handler(req: any, res: any) {
   const requestId = createRequestId();
-  console.info("[column-scan] start", { requestId, method: req.method });
 
-  try {
-    if (req.method !== "POST") {
-      logError(requestId, null, "Method Not Allowed");
-      console.info("[column-scan] payload", {
-        requestId,
-        experimentCount: null,
-        colCount: null
-      });
-      return sendJson(res, 405, {
-        ok: false,
-        error: "Method Not Allowed",
-        requestId
-      });
-    }
-
-    const parsed = await parseBody(req);
-    if (!parsed.ok || typeof parsed.body !== "object" || parsed.body === null) {
-      logError(requestId, parsed.ok ? null : parsed.error, "Invalid JSON body");
-      console.info("[column-scan] payload", {
-        requestId,
-        experimentCount: null,
-        colCount: null
-      });
-      return sendJson(res, 400, {
-        ok: false,
-        error: "Invalid JSON body",
-        requestId
-      });
-    }
-
-    const echo = toEcho(parsed.body);
-    console.info("[column-scan] payload", {
+  if (req.method !== "POST") {
+    logStart({
       requestId,
-      experimentCount: echo.experimentCount,
-      colCount: echo.colCount
+      method: req.method,
+      colCount: null,
+      experimentCount: null,
+      includeComments: false
     });
-
-    const keyAvailable = hasOpenAIKey();
-    console.info("[column-scan] env", { requestId, hasKey: keyAvailable });
-
-    if (!keyAvailable) {
-      logError(requestId, null, "Missing OPENAI_API_KEY");
-      return sendJson(res, 500, {
-        ok: false,
-        error: "Missing OPENAI_API_KEY",
-        requestId
-      });
-    }
-
-    if (parsed.body.smokeTest === true) {
-      try {
-        await runOpenAiSmokeTest(process.env.OPENAI_API_KEY as string);
-        return sendJson(res, 200, { ok: true, requestId, smokeTest: true });
-      } catch (error) {
-        logError(requestId, error, "OpenAI call failed");
-        const message = error instanceof Error ? error.message : "OpenAI call failed";
-        return sendJson(res, 502, {
-          ok: false,
-          error: "OpenAI call failed",
-          requestId,
-          details: message
-        });
-      }
-    }
-
-    return sendJson(res, 200, {
-      ok: true,
-      requestId,
-      echo
-    });
-  } catch (error) {
-    logError(requestId, error, "Internal Server Error");
-    return sendJson(res, 500, {
+    return jsonResponse(res, 405, {
       ok: false,
-      error: "Internal Server Error",
+      error: "Method Not Allowed",
       requestId
     });
+  }
+
+  let parsedBody: unknown;
+  try {
+    parsedBody = await readRequestBody(req);
+  } catch (error) {
+    logFailure(requestId, error, "Invalid JSON");
+    logStart({
+      requestId,
+      method: req.method,
+      colCount: null,
+      experimentCount: null,
+      includeComments: false
+    });
+    return jsonResponse(res, 400, { ok: false, error: "Invalid request", requestId });
+  }
+
+  const validated = requestSchema.safeParse(parsedBody);
+  const colCount = Array.isArray((parsedBody as any)?.columns)
+    ? (parsedBody as any).columns.length
+    : null;
+  const includeComments = validated.success ? validated.data.includeComments : false;
+  logStart({
+    requestId,
+    method: req.method,
+    colCount,
+    experimentCount: validated.success && validated.data.experimentCount !== undefined
+      ? validated.data.experimentCount
+      : null,
+    includeComments
+  });
+
+  if (!validated.success) {
+    logFailure(requestId, validated.error, "Invalid request");
+    return jsonResponse(res, 400, { ok: false, error: "Invalid request", requestId });
+  }
+
+  const client = ensureOpenAIClient(process.env.OPENAI_API_KEY);
+  if (!client) {
+    logFailure(requestId, null, "Missing OPENAI_API_KEY");
+    return jsonResponse(res, 500, {
+      ok: false,
+      error: "Missing OPENAI_API_KEY",
+      requestId
+    });
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 25_000);
+
+  try {
+    const rawModelOutput = await callOpenAI(client, validated.data, controller.signal);
+    let parsedModelOutput: unknown;
+    try {
+      parsedModelOutput = JSON.parse(rawModelOutput);
+    } catch {
+      logFailure(requestId, null, "Model response was not valid JSON");
+      console.error("[column-scan] raw-output", rawModelOutput.slice(0, 500));
+      return jsonResponse(res, 502, {
+        ok: false,
+        error: "Invalid model output",
+        requestId,
+        details: "JSON parse failed"
+      });
+    }
+
+    const validationResult = validateModelOutput(
+      parsedModelOutput,
+      requestColumnsFromBody(validated.data)
+    );
+    if (!validationResult.ok) {
+      logFailure(requestId, null, validationResult.message);
+      console.error(
+        "[column-scan] raw-output",
+        typeof rawModelOutput === "string" ? rawModelOutput.slice(0, 500) : ""
+      );
+      return jsonResponse(res, 502, {
+        ok: false,
+        error: "Invalid model output",
+        requestId,
+        details: validationResult.message
+      });
+    }
+
+    logSuccess(requestId, validationResult.data.selectedColumns.length);
+    return jsonResponse(res, 200, {
+      ok: true,
+      requestId,
+      result: validationResult.data
+    });
+  } catch (error) {
+    const message =
+      error instanceof Error && error.name === "AbortError"
+        ? "Model call timed out"
+        : "OpenAI call failed";
+    logFailure(requestId, error, message);
+    return jsonResponse(res, 502, {
+      ok: false,
+      error: message,
+      requestId
+    });
+  } finally {
+    clearTimeout(timeout);
   }
 }
