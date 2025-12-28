@@ -1,19 +1,51 @@
 import { randomUUID } from "crypto";
+import OpenAI from "openai";
 
 export const config = {
   runtime: "nodejs"
 };
 
-type ColumnScanBody = {
-  experimentCount?: unknown;
-  columns?: unknown;
-  smokeTest?: unknown;
+type ColumnRequest = {
+  name: string;
+  typeHeuristic: "numeric" | "text" | "mixed";
+  nonNullRatio: number;
+  examples?: string[];
 };
 
-type EchoShape = {
-  experimentCount: number | null;
-  colCount: number | null;
+type ColumnScanRequest = {
+  columns: ColumnRequest[];
+  experimentCount?: number;
+  knownStructuralColumns?: string[];
+  includeComments?: boolean;
 };
+
+type ColumnScanModelResult = {
+  selectedColumns: string[];
+  columnRoles: Record<string, "condition" | "comment" | "noise">;
+  factorCandidates: string[];
+  notes: string;
+  uncertainties: string[];
+};
+
+type ValidatedRequest = {
+  columns: ColumnRequest[];
+  experimentCount?: number;
+  knownStructuralColumns: string[];
+  includeComments: boolean;
+};
+
+type ValidationResult<T> =
+  | { ok: true; value: T }
+  | { ok: false; message: string };
+
+const MAX_COLUMNS = 500;
+const MAX_EXAMPLES = 10;
+const MAX_EXAMPLE_LENGTH = 120;
+const MAX_SELECTED_COLUMNS = 8;
+const MAX_FACTOR_CANDIDATES = 12;
+const MAX_UNCERTAINTIES = 8;
+const MAX_NOTES_LENGTH = 400;
+const MAX_UNCERTAINTY_LENGTH = 160;
 
 const createRequestId = (): string => {
   try {
@@ -43,7 +75,7 @@ const sendJson = (res: any, statusCode: number, payload: Record<string, unknown>
 
 const parseBody = async (
   req: any
-): Promise<{ ok: true; body: ColumnScanBody } | { ok: false; error?: unknown }> => {
+): Promise<{ ok: true; body: unknown } | { ok: false; error?: unknown }> => {
   try {
     if (req.body !== undefined && req.body !== null) {
       if (typeof req.body === "string") {
@@ -75,90 +107,226 @@ const parseBody = async (
   }
 };
 
-const toEcho = (body: ColumnScanBody): EchoShape => {
-  const experimentCount =
-    typeof body.experimentCount === "number" ? body.experimentCount : null;
-  const columns = Array.isArray(body.columns) ? body.columns : null;
-  const colCount = columns ? columns.length : null;
-  return { experimentCount, colCount };
-};
-
 const logError = (requestId: string, error: unknown, fallbackMessage: string) => {
   const payload =
     error instanceof Error
       ? { message: error.message, stack: error.stack }
       : { message: fallbackMessage, stack: undefined };
-  console.error("[column-scan] fail", { requestId, ...payload });
+  console.error("[column-scan] failure", { requestId, ...payload });
 };
 
 const hasOpenAIKey = (): boolean =>
   typeof process.env.OPENAI_API_KEY === "string" && process.env.OPENAI_API_KEY.trim() !== "";
 
-const runOpenAiSmokeTest = async (apiKey: string) => {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 25_000);
-  try {
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json"
-      },
-      signal: controller.signal,
-      body: JSON.stringify({
-        model: "gpt-5.2",
-        messages: [
-          {
-            role: "system",
-            content:
-              "Return strictly the JSON {\"ok\":true}. No explanations, no extra keys, no text."
-          },
-          { role: "user", content: "Respond with {\"ok\":true} only." }
-        ],
-        temperature: 0,
-        max_tokens: 20
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error(`status ${response.status}`);
-    }
-
-    const data = await response.json();
-    const content: string | undefined = data?.choices?.[0]?.message?.content;
-    if (!content) {
-      throw new Error("empty response");
-    }
-
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(content);
-    } catch {
-      throw new Error("non-JSON content");
-    }
-
-    if (typeof parsed !== "object" || parsed === null || (parsed as any).ok !== true) {
-      throw new Error("unexpected payload");
-    }
-
-    return { ok: true as const };
-  } finally {
-    clearTimeout(timeout);
+const truncateExample = (value: unknown): string => {
+  if (typeof value !== "string") {
+    return "";
   }
+  if (value.length <= MAX_EXAMPLE_LENGTH) {
+    return value;
+  }
+  return value.slice(0, MAX_EXAMPLE_LENGTH);
+};
+
+const sanitizeExamples = (examples: unknown): ValidationResult<string[]> => {
+  if (examples === undefined) {
+    return { ok: true, value: [] };
+  }
+  if (!Array.isArray(examples) || examples.length > MAX_EXAMPLES) {
+    return { ok: false, message: "Invalid examples" };
+  }
+  const sanitized = examples
+    .map((item) => truncateExample(item))
+    .filter((item) => item.length > 0);
+  return { ok: true, value: sanitized };
+};
+
+const sanitizeColumns = (columns: unknown): ValidationResult<ColumnRequest[]> => {
+  if (!Array.isArray(columns) || columns.length === 0 || columns.length > MAX_COLUMNS) {
+    return { ok: false, message: "Invalid columns" };
+  }
+
+  const sanitized: ColumnRequest[] = [];
+  for (const entry of columns) {
+    if (typeof entry !== "object" || entry === null) {
+      return { ok: false, message: "Invalid column shape" };
+    }
+    const name = typeof (entry as any).name === "string" ? (entry as any).name.trim() : "";
+    const typeHeuristic = (entry as any).typeHeuristic;
+    const nonNullRatio = (entry as any).nonNullRatio;
+    const examplesResult = sanitizeExamples((entry as any).examples);
+
+    if (!examplesResult.ok) {
+      return examplesResult;
+    }
+    if (!name) {
+      return { ok: false, message: "Invalid column name" };
+    }
+    if (!["numeric", "text", "mixed"].includes(typeHeuristic)) {
+      return { ok: false, message: "Invalid typeHeuristic" };
+    }
+    if (typeof nonNullRatio !== "number" || !Number.isFinite(nonNullRatio)) {
+      return { ok: false, message: "Invalid nonNullRatio" };
+    }
+    if (nonNullRatio < 0 || nonNullRatio > 1) {
+      return { ok: false, message: "Invalid nonNullRatio" };
+    }
+
+    sanitized.push({
+      name,
+      typeHeuristic,
+      nonNullRatio,
+      examples: examplesResult.value
+    });
+  }
+
+  return { ok: true, value: sanitized };
+};
+
+const validateRequest = (body: unknown): ValidationResult<ValidatedRequest> => {
+  if (typeof body !== "object" || body === null) {
+    return { ok: false, message: "Invalid request" };
+  }
+  const columnResult = sanitizeColumns((body as any).columns);
+  if (!columnResult.ok) {
+    return { ok: false, message: "Invalid request" };
+  }
+
+  const experimentCount =
+    (body as any).experimentCount === undefined
+      ? undefined
+      : typeof (body as any).experimentCount === "number" &&
+          Number.isFinite((body as any).experimentCount)
+        ? (body as any).experimentCount
+        : null;
+
+  if (experimentCount === null) {
+    return { ok: false, message: "Invalid request" };
+  }
+
+  const knownStructuralColumnsRaw = (body as any).knownStructuralColumns;
+  let knownStructuralColumns: string[] = [];
+  if (knownStructuralColumnsRaw !== undefined) {
+    if (!Array.isArray(knownStructuralColumnsRaw)) {
+      return { ok: false, message: "Invalid request" };
+    }
+    knownStructuralColumns = knownStructuralColumnsRaw
+      .filter((item) => typeof item === "string")
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0);
+  }
+
+  const includeCommentsRaw = (body as any).includeComments;
+  if (includeCommentsRaw !== undefined && typeof includeCommentsRaw !== "boolean") {
+    return { ok: false, message: "Invalid request" };
+  }
+
+  return {
+    ok: true,
+    value: {
+      columns: columnResult.value,
+      experimentCount: experimentCount === undefined ? undefined : experimentCount,
+      knownStructuralColumns,
+      includeComments: includeCommentsRaw === true
+    }
+  };
+};
+
+const validateModelResult = (data: unknown): ValidationResult<ColumnScanModelResult> => {
+  if (typeof data !== "object" || data === null) {
+    return { ok: false, message: "Invalid model output" };
+  }
+  const { selectedColumns, columnRoles, factorCandidates, notes, uncertainties, ...rest } =
+    data as any;
+
+  if (Object.keys(rest ?? {}).length > 0) {
+    return { ok: false, message: "Invalid model output" };
+  }
+
+  if (
+    !Array.isArray(selectedColumns) ||
+    selectedColumns.length > MAX_SELECTED_COLUMNS ||
+    selectedColumns.some((item) => typeof item !== "string" || item.trim() === "")
+  ) {
+    return { ok: false, message: "Invalid model output" };
+  }
+
+  if (typeof columnRoles !== "object" || columnRoles === null) {
+    return { ok: false, message: "Invalid model output" };
+  }
+  const normalizedRoles: Record<string, "condition" | "comment" | "noise"> = {};
+  for (const [key, value] of Object.entries(columnRoles)) {
+    if (!["condition", "comment", "noise"].includes(value as string) || !key.trim()) {
+      return { ok: false, message: "Invalid model output" };
+    }
+    normalizedRoles[key] = value as "condition" | "comment" | "noise";
+  }
+
+  if (
+    !Array.isArray(factorCandidates) ||
+    factorCandidates.length > MAX_FACTOR_CANDIDATES ||
+    factorCandidates.some((item) => typeof item !== "string" || item.trim() === "")
+  ) {
+    return { ok: false, message: "Invalid model output" };
+  }
+
+  if (typeof notes !== "string" || notes.length > MAX_NOTES_LENGTH) {
+    return { ok: false, message: "Invalid model output" };
+  }
+
+  if (
+    !Array.isArray(uncertainties) ||
+    uncertainties.length > MAX_UNCERTAINTIES ||
+    uncertainties.some(
+      (item) => typeof item !== "string" || item.length === 0 || item.length > MAX_UNCERTAINTY_LENGTH
+    )
+  ) {
+    return { ok: false, message: "Invalid model output" };
+  }
+
+  return {
+    ok: true,
+    value: {
+      selectedColumns: selectedColumns.map((item: string) => item.trim()),
+      columnRoles: normalizedRoles,
+      factorCandidates: factorCandidates.map((item: string) => item.trim()),
+      notes,
+      uncertainties
+    }
+  };
+};
+
+const buildPrompt = (payload: ValidatedRequest): { system: string; user: string } => {
+  const system = [
+    "You propose dataset columns to keep for kinetic experiments.",
+    "Return ONLY JSON matching this schema:",
+    `{"selectedColumns": string[], "columnRoles": {"<column>": "condition|comment|noise"}, "factorCandidates": string[], "notes": string, "uncertainties": string[]}`,
+    `Limit selectedColumns to ${MAX_SELECTED_COLUMNS} items and label roles with condition/comment/noise.`,
+    `Prefer condition columns and avoid known structural columns: ${payload.knownStructuralColumns.join(", ") || "none"}.`,
+    payload.includeComments
+      ? "Comments may be selected but must be labeled as comment."
+      : "Avoid selecting comment-like columns unless truly necessary; always label them as comment if present.",
+    "factorCandidates should be concise (snake_case or lowercase, <=12 items).",
+    `Keep notes under ${MAX_NOTES_LENGTH} characters and uncertainties under ${MAX_UNCERTAINTY_LENGTH} characters (max ${MAX_UNCERTAINTIES} items).`,
+    "Do not add markdown, explanations, or extra keys."
+  ].join(" ");
+
+  const user = JSON.stringify({
+    columns: payload.columns,
+    experimentCount: payload.experimentCount ?? null,
+    knownStructuralColumns: payload.knownStructuralColumns,
+    includeComments: payload.includeComments
+  });
+
+  return { system, user };
 };
 
 export default async function handler(req: any, res: any) {
   const requestId = createRequestId();
-  console.info("[column-scan] start", { requestId, method: req.method });
 
   try {
     if (req.method !== "POST") {
       logError(requestId, null, "Method Not Allowed");
-      console.info("[column-scan] payload", {
-        requestId,
-        experimentCount: null,
-        colCount: null
-      });
       return sendJson(res, 405, {
         ok: false,
         error: "Method Not Allowed",
@@ -166,31 +334,27 @@ export default async function handler(req: any, res: any) {
       });
     }
 
-    const parsed = await parseBody(req);
-    if (!parsed.ok || typeof parsed.body !== "object" || parsed.body === null) {
-      logError(requestId, parsed.ok ? null : parsed.error, "Invalid JSON body");
-      console.info("[column-scan] payload", {
-        requestId,
-        experimentCount: null,
-        colCount: null
-      });
-      return sendJson(res, 400, {
-        ok: false,
-        error: "Invalid JSON body",
-        requestId
-      });
+    const parsedBody = await parseBody(req);
+    if (!parsedBody.ok) {
+      logError(requestId, parsedBody.error, "Invalid request");
+      return sendJson(res, 400, { ok: false, error: "Invalid request", requestId });
     }
 
-    const echo = toEcho(parsed.body);
-    console.info("[column-scan] payload", {
+    const validated = validateRequest(parsedBody.body);
+    if (!validated.ok) {
+      logError(requestId, null, validated.message);
+      return sendJson(res, 400, { ok: false, error: "Invalid request", requestId });
+    }
+
+    console.info("[column-scan] start", {
       requestId,
-      experimentCount: echo.experimentCount,
-      colCount: echo.colCount
+      method: req.method,
+      colCount: validated.value.columns.length,
+      experimentCount: validated.value.experimentCount ?? null,
+      includeComments: validated.value.includeComments
     });
 
     const keyAvailable = hasOpenAIKey();
-    console.info("[column-scan] env", { requestId, hasKey: keyAvailable });
-
     if (!keyAvailable) {
       logError(requestId, null, "Missing OPENAI_API_KEY");
       return sendJson(res, 500, {
@@ -200,26 +364,80 @@ export default async function handler(req: any, res: any) {
       });
     }
 
-    if (parsed.body.smokeTest === true) {
-      try {
-        await runOpenAiSmokeTest(process.env.OPENAI_API_KEY as string);
-        return sendJson(res, 200, { ok: true, requestId, smokeTest: true });
-      } catch (error) {
-        logError(requestId, error, "OpenAI call failed");
-        const message = error instanceof Error ? error.message : "OpenAI call failed";
-        return sendJson(res, 502, {
-          ok: false,
-          error: "OpenAI call failed",
-          requestId,
-          details: message
-        });
-      }
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const { system, user } = buildPrompt(validated.value);
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 25_000);
+
+    let rawModelOutput = "";
+    try {
+      const completion = await openai.chat.completions.create(
+        {
+          model: "gpt-5.2",
+          messages: [
+            { role: "system", content: system },
+            { role: "user", content: user }
+          ],
+          temperature: 0,
+          max_tokens: 600,
+          response_format: { type: "json_object" }
+        },
+        { signal: controller.signal }
+      );
+      rawModelOutput = completion.choices?.[0]?.message?.content ?? "";
+    } catch (error) {
+      logError(requestId, error, "OpenAI call failed");
+      return sendJson(res, 502, {
+        ok: false,
+        error: "Invalid model output",
+        requestId,
+        details: "OpenAI call failed"
+      });
+    } finally {
+      clearTimeout(timeout);
     }
+
+    let parsedModel: unknown;
+    try {
+      parsedModel = rawModelOutput ? JSON.parse(rawModelOutput) : null;
+    } catch (error) {
+      console.error("[column-scan] model parse failure", {
+        requestId,
+        preview: rawModelOutput.slice(0, 500)
+      });
+      logError(requestId, error, "Invalid model output");
+      return sendJson(res, 502, {
+        ok: false,
+        error: "Invalid model output",
+        requestId,
+        details: "JSON parse failed"
+      });
+    }
+
+    const validatedModel = validateModelResult(parsedModel);
+    if (!validatedModel.ok) {
+      console.error("[column-scan] model validation failure", {
+        requestId,
+        preview: rawModelOutput.slice(0, 500)
+      });
+      return sendJson(res, 502, {
+        ok: false,
+        error: "Invalid model output",
+        requestId,
+        details: "Validation failed"
+      });
+    }
+
+    console.info("[column-scan] success", {
+      requestId,
+      selectedColumns: validatedModel.value.selectedColumns.length
+    });
 
     return sendJson(res, 200, {
       ok: true,
       requestId,
-      echo
+      result: validatedModel.value
     });
   } catch (error) {
     logError(requestId, error, "Internal Server Error");
