@@ -13,8 +13,8 @@ export type ColumnScanPayload = {
 };
 
 type ColumnScanStatus =
-  | { kind: "success"; requestId: string }
-  | { kind: "error"; requestId: string; message?: string }
+  | { kind: "success"; requestId: string; smokeTest?: boolean }
+  | { kind: "error"; requestId: string; message?: string; smokeTest?: boolean }
   | null;
 
 type GroupingScreenProps = {
@@ -36,7 +36,7 @@ export const GroupingScreen = ({ experiments, columnScanPayload }: GroupingScree
     setColumnScanStatus(null);
   }, [columnScanPayload]);
 
-  const handleColumnScan = async () => {
+  const handleColumnScan = async (opts?: { smokeTest?: boolean }) => {
     if (!columnScanPayload) {
       return;
     }
@@ -46,7 +46,10 @@ export const GroupingScreen = ({ experiments, columnScanPayload }: GroupingScree
       const response = await fetch("/api/column-scan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(columnScanPayload)
+        body: JSON.stringify({
+          ...columnScanPayload,
+          smokeTest: opts?.smokeTest === true
+        })
       });
 
       let data: any = null;
@@ -56,22 +59,35 @@ export const GroupingScreen = ({ experiments, columnScanPayload }: GroupingScree
         // keep data as null if JSON parsing fails
       }
       const requestId = data?.requestId ?? "n/a";
+      const errorMessage = data?.details ?? data?.error ?? response.statusText;
 
       if (!response.ok || !data?.ok) {
-        setColumnScanStatus({
-          kind: "error",
-          requestId,
-          message: data?.error ?? response.statusText
-        });
+        setColumnScanStatus(
+          opts?.smokeTest
+            ? {
+                kind: "error",
+                requestId,
+                message: errorMessage,
+                smokeTest: true
+              }
+            : {
+                kind: "error",
+                requestId,
+                message: errorMessage
+              }
+        );
         return;
       }
 
-      setColumnScanStatus({ kind: "success", requestId });
+      setColumnScanStatus(
+        opts?.smokeTest ? { kind: "success", requestId, smokeTest: true } : { kind: "success", requestId }
+      );
     } catch (error) {
       setColumnScanStatus({
         kind: "error",
         requestId: "n/a",
-        message: error instanceof Error ? error.message : "Unexpected error"
+        message: error instanceof Error ? error.message : "Unexpected error",
+        smokeTest: opts?.smokeTest
       });
     } finally {
       setIsScanning(false);
@@ -106,6 +122,16 @@ export const GroupingScreen = ({ experiments, columnScanPayload }: GroupingScree
             >
               {isScanning ? "Sending..." : "Ping column scan"}
             </button>
+            {import.meta.env.DEV && (
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => void handleColumnScan({ smokeTest: true })}
+                disabled={!columnScanPayload || isScanning}
+              >
+                {isScanning ? "Testing..." : "Run OpenAI smoke test"}
+              </button>
+            )}
           </div>
           {columnScanPayload ? (
             <div className="column-scan-meta">
@@ -137,10 +163,15 @@ export const GroupingScreen = ({ experiments, columnScanPayload }: GroupingScree
           {columnScanStatus?.kind === "success" && (
             <div className="inline-success">
               <p className="success-title">
-                Column scan ping OK (requestId: {columnScanStatus.requestId})
+                {columnScanStatus.smokeTest
+                  ? "OpenAI smoke test OK"
+                  : "Column scan ping OK"}{" "}
+                (requestId: {columnScanStatus.requestId})
               </p>
               <p className="meta">
-                The serverless route responded with the expected JSON payload.
+                {columnScanStatus.smokeTest
+                  ? "The smoke test reached OpenAI and returned the expected JSON payload."
+                  : "The serverless route responded with the expected JSON payload."}
               </p>
             </div>
           )}
@@ -148,7 +179,10 @@ export const GroupingScreen = ({ experiments, columnScanPayload }: GroupingScree
           {columnScanStatus?.kind === "error" && (
             <div className="inline-error">
               <p className="error-title">
-                Column scan ping failed (requestId: {columnScanStatus.requestId})
+                {columnScanStatus.smokeTest
+                  ? "OpenAI smoke test failed"
+                  : "Column scan ping failed"}{" "}
+                (requestId: {columnScanStatus.requestId})
               </p>
               {columnScanStatus.message && <p className="meta">{columnScanStatus.message}</p>}
             </div>
