@@ -163,6 +163,40 @@ const findDefaultTimeColumn = (headers: string[]): number | null => {
   return index >= 0 ? index : null;
 };
 
+const detectNumeric = (value: string | number | null): boolean => {
+  if (typeof value === "number") {
+    return !Number.isNaN(value);
+  }
+  if (typeof value !== "string") {
+    return false;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return false;
+  }
+  return /^-?\d+(?:[.,]\d+)?(?:[eE][+-]?\d+)?$/.test(trimmed);
+};
+
+const inferColumnSummaries = (table: RawTable): ColumnScanPayload["columns"] => {
+  const totalRows = table.rows.length || 1;
+  return table.headers.slice(0, 500).map((header, columnIndex) => {
+    const values = table.rows.map((row) => row[columnIndex] ?? null);
+    const nonNullValues = values.filter((value) => value !== null && value !== undefined && `${value}`.trim() !== "");
+    const numericCount = nonNullValues.filter((value) => detectNumeric(value as any)).length;
+    const textCount = nonNullValues.length - numericCount;
+    const typeHeuristic = numericCount > 0 && textCount > 0 ? "mixed" : numericCount > 0 ? "numeric" : "text";
+    const nonNullRatio = Math.min(1, Math.max(0, nonNullValues.length / totalRows));
+    const examples = nonNullValues.slice(0, 3).map((value) => String(value)).map((value) => value.slice(0, 120));
+
+    return {
+      name: String(header ?? ""),
+      typeHeuristic,
+      nonNullRatio,
+      ...(examples.length > 0 ? { examples } : {})
+    };
+  });
+};
+
 function App() {
   const [searchValue, setSearchValue] = useState("");
   const [activeStep, setActiveStep] = useState(steps[0]);
@@ -348,6 +382,7 @@ function App() {
     if (!normalizedActiveTable) {
       return null;
     }
+
     const headers = normalizedActiveTable.headers.map((header) => String(header ?? ""));
     const getHeader = (index: number | null): string | null =>
       index !== null && headers[index] !== undefined ? headers[index] : null;
@@ -355,15 +390,19 @@ function App() {
       .map((index) => headers[index])
       .filter((header): header is string => typeof header === "string");
 
+    const knownStructuralColumns = [
+      getHeader(mappingSelection.timeColumnIndex),
+      ...valueHeaders,
+      getHeader(mappingSelection.experimentColumnIndex),
+      getHeader(mappingSelection.replicateColumnIndex)
+    ]
+      .filter((value): value is string => Boolean(value && value.trim().length > 0))
+      .slice(0, 20);
+
     return {
-      columns: headers,
+      columns: inferColumnSummaries(normalizedActiveTable),
       experimentCount: mappingStats?.experimentCount ?? null,
-      knownStructuralColumns: {
-        time: getHeader(mappingSelection.timeColumnIndex),
-        values: valueHeaders,
-        experiment: getHeader(mappingSelection.experimentColumnIndex),
-        replicate: getHeader(mappingSelection.replicateColumnIndex)
-      }
+      knownStructuralColumns
     };
   }, [mappingSelection, mappingStats, normalizedActiveTable]);
 
