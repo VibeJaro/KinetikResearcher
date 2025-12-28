@@ -386,17 +386,27 @@ export default async function handler(req: any, res: any) {
         { signal: controller.signal }
       );
       rawModelOutput = completion.choices?.[0]?.message?.content ?? "";
-    } catch (error) {
+    } catch (error: any) {
+      const status = typeof error?.status === "number" ? error.status : undefined;
+      const message = error instanceof Error ? error.message : "OpenAI call failed";
+      console.error("[column-scan] openai failure", {
+        requestId,
+        status,
+        message,
+        stack: error?.stack
+      });
       logError(requestId, error, "OpenAI call failed");
       return sendJson(res, 502, {
         ok: false,
-        error: "Invalid model output",
+        error: "OpenAI call failed",
         requestId,
-        details: "OpenAI call failed",
-        modelOutputPreview: rawModelOutput ? rawModelOutput.slice(0, 500) : undefined,
+        details: status ? `${status} ${message}` : message,
         debug: {
           modelInput: { system, user },
-          modelOutput: rawModelOutput.slice(0, 2000)
+          modelOutput: rawModelOutput.slice(0, 2000),
+          status,
+          message,
+          stack: error?.stack
         }
       });
     } finally {
