@@ -1,102 +1,128 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { ColumnScanPayload, ColumnScanResult } from "../../types/columnScan";
 import type { Experiment } from "../../types/experiment";
-
-export type ColumnScanPayload = {
-  columns: string[];
-  experimentCount: number | null;
-  knownStructuralColumns: {
-    time: string | null;
-    values: string[];
-    experiment: string | null;
-    replicate: string | null;
-  };
-};
-
-type ColumnScanStatus =
-  | { kind: "success"; requestId: string; smokeTest?: boolean }
-  | { kind: "error"; requestId: string; message?: string; smokeTest?: boolean }
-  | null;
 
 type GroupingScreenProps = {
   experiments: Experiment[];
   columnScanPayload: ColumnScanPayload | null;
 };
 
-const formatKnownColumns = (payload: ColumnScanPayload["knownStructuralColumns"]) => [
-  ["Time", payload.time],
-  ["Experiment", payload.experiment],
-  ["Replicate", payload.replicate]
-];
+const roleTone: Record<ColumnScanResult["columnRoles"][string], string> = {
+  condition: "role-condition",
+  comment: "role-comment",
+  noise: "role-noise"
+};
+
+const formatNonNullRatio = (value: number): string =>
+  `${Math.round(Math.min(1, Math.max(0, value)) * 100)}% non-null`;
 
 export const GroupingScreen = ({ experiments, columnScanPayload }: GroupingScreenProps) => {
-  const [columnScanStatus, setColumnScanStatus] = useState<ColumnScanStatus>(null);
-  const [isScanning, setIsScanning] = useState(false);
+  const [includeComments, setIncludeComments] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [requestId, setRequestId] = useState<string | null>(null);
+  const [result, setResult] = useState<ColumnScanResult | null>(null);
+  const [selectedColumnsFinal, setSelectedColumnsFinal] = useState<string[]>([]);
+
+  const columnSummaries = useMemo(
+    () => columnScanPayload?.request.columns ?? [],
+    [columnScanPayload?.request]
+  );
+  const knownStructuralColumns = useMemo(
+    () => columnScanPayload?.request.knownStructuralColumns ?? [],
+    [columnScanPayload?.request.knownStructuralColumns]
+  );
+  const availableColumns = useMemo(
+    () => new Set(columnSummaries.map((column) => column.name)),
+    [columnSummaries]
+  );
 
   useEffect(() => {
-    setColumnScanStatus(null);
-  }, [columnScanPayload]);
+    setResult(null);
+    setError(null);
+    setRequestId(null);
+    setSelectedColumnsFinal([]);
+  }, [columnScanPayload?.request]);
 
-  const handleColumnScan = async (opts?: { smokeTest?: boolean }) => {
-    if (!columnScanPayload) {
+  useEffect(() => {
+    if (!result) {
       return;
     }
-    setIsScanning(true);
-    setColumnScanStatus(null);
+    const filteredSelection = result.selectedColumns.filter((name) =>
+      availableColumns.has(name)
+    );
+    setSelectedColumnsFinal(filteredSelection);
+  }, [availableColumns, result]);
+
+  const handleColumnToggle = (name: string) => {
+    setSelectedColumnsFinal((prev) =>
+      prev.includes(name) ? prev.filter((item) => item !== name) : [...prev, name]
+    );
+  };
+
+  const handleColumnScan = async () => {
+    if (!columnScanPayload?.request) {
+      setError("No column summary available.");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    setRequestId(null);
+    setResult(null);
+
     try {
+      const payloadToSend = {
+        ...columnScanPayload.request,
+        includeComments
+      };
       const response = await fetch("/api/column-scan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...columnScanPayload,
-          smokeTest: opts?.smokeTest === true
-        })
+        body: JSON.stringify(payloadToSend)
       });
 
-      let data: any = null;
-      try {
-        data = await response.json();
-      } catch {
-        // keep data as null if JSON parsing fails
-      }
-      const requestId = data?.requestId ?? "n/a";
-      const errorMessage = data?.details ?? data?.error ?? response.statusText;
+      const contentType = response.headers.get("content-type") ?? "";
+      const isJson = contentType.includes("application/json");
+      const data: any = isJson ? await response.json() : await response.text();
+      const responseId =
+        typeof data === "object" && data !== null && typeof data.requestId === "string"
+          ? data.requestId
+          : null;
+      setRequestId(responseId);
 
-      if (!response.ok || !data?.ok) {
-        setColumnScanStatus(
-          opts?.smokeTest
-            ? {
-                kind: "error",
-                requestId,
-                message: errorMessage,
-                smokeTest: true
-              }
-            : {
-                kind: "error",
-                requestId,
-                message: errorMessage
-              }
-        );
+      if (!response.ok || typeof data !== "object" || data === null || data.ok !== true) {
+        const errorMessage =
+          typeof data === "string"
+            ? data
+            : typeof data?.error === "string"
+              ? data.error
+              : "Column scan failed";
+        const details =
+          typeof data === "object" && data !== null && typeof data.details === "string"
+            ? data.details
+            : null;
+        setError(details ? `${errorMessage} (${details})` : errorMessage);
         return;
       }
 
-      setColumnScanStatus(
-        opts?.smokeTest ? { kind: "success", requestId, smokeTest: true } : { kind: "success", requestId }
+      if (!data.result) {
+        setError("Missing result in response.");
+        return;
+      }
+
+      const responseResult = data.result as ColumnScanResult;
+      setResult(responseResult);
+      const filteredSelection = responseResult.selectedColumns.filter((name: string) =>
+        availableColumns.has(name)
       );
-    } catch (error) {
-      setColumnScanStatus({
-        kind: "error",
-        requestId: "n/a",
-        message: error instanceof Error ? error.message : "Unexpected error",
-        smokeTest: opts?.smokeTest
-      });
+      setSelectedColumnsFinal(filteredSelection);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unexpected error");
     } finally {
-      setIsScanning(false);
+      setLoading(false);
     }
   };
-
-  if (import.meta.env.DEV) {
-    console.info("[grouping] first experiment shape", experiments?.[0]);
-  }
 
   return (
     <section className="grouping-screen">
@@ -109,84 +135,154 @@ export const GroupingScreen = ({ experiments, columnScanPayload }: GroupingScree
         <div className="experiment-card column-scan-card">
           <div className="column-scan-header">
             <div>
-              <h4>Column scan connectivity</h4>
+              <h4>LLM column scan</h4>
               <p className="meta">
-                Ping the /api/column-scan endpoint with the current mapping context.
+                Send the current column summary to /api/column-scan and review the suggested
+                selections.
               </p>
             </div>
-            <button
-              type="button"
-              className="primary"
-              onClick={() => void handleColumnScan()}
-              disabled={!columnScanPayload || isScanning}
-            >
-              {isScanning ? "Sending..." : "Ping column scan"}
-            </button>
-            {import.meta.env.DEV && (
+            <div className="column-scan-controls">
+              <label className="toggle">
+                <input
+                  type="checkbox"
+                  checked={includeComments}
+                  onChange={(event) => setIncludeComments(event.target.checked)}
+                />
+                <span>Include comment-like columns</span>
+              </label>
               <button
                 type="button"
-                className="secondary"
-                onClick={() => void handleColumnScan({ smokeTest: true })}
-                disabled={!columnScanPayload || isScanning}
+                className="primary"
+                onClick={() => void handleColumnScan()}
+                disabled={!columnSummaries.length || loading}
               >
-                {isScanning ? "Testing..." : "Run OpenAI smoke test"}
+                {loading ? "Scanning..." : "Run column scan"}
               </button>
-            )}
+            </div>
           </div>
-          {columnScanPayload ? (
-            <div className="column-scan-meta">
-              <p className="meta">
-                Columns: {columnScanPayload.columns.length} · Experiment count hint:{" "}
-                {columnScanPayload.experimentCount ?? "n/a"}
+
+          <div className="column-scan-meta">
+            <p className="meta">
+              Columns: {columnSummaries.length} · Experiment count hint:{" "}
+              {columnScanPayload?.request.experimentCount ?? "n/a"}
+            </p>
+            <div className="chip-row">
+              <span className="chip">Source: {columnScanPayload?.source ?? "n/a"}</span>
+              <span className="chip">
+                Comments: {includeComments ? "allowed" : "excluded unless critical"}
+              </span>
+              {knownStructuralColumns.length > 0 && (
+                <span className="chip">
+                  Structural: {knownStructuralColumns.slice(0, 4).join(", ")}
+                  {knownStructuralColumns.length > 4 ? "…" : ""}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {error && (
+            <div className="inline-error">
+              <p className="error-title">
+                Column scan failed {requestId ? `(requestId: ${requestId})` : ""}
               </p>
-              <div className="chip-row">
-                {formatKnownColumns(columnScanPayload.knownStructuralColumns).map(
-                  ([label, value]) => (
-                    <span key={label} className="chip">
-                      {label}: {value ?? "n/a"}
-                    </span>
-                  )
+              <p className="meta">{error}</p>
+            </div>
+          )}
+
+          {result && (
+            <div className="inline-success">
+              <p className="success-title">
+                Column scan OK (requestId: {requestId ?? "n/a"})
+              </p>
+              <p className="meta">Review the suggested roles and adjust the final selection.</p>
+            </div>
+          )}
+
+          <div className="column-scan-grid">
+            <div className="column-scan-side">
+              <div className="notes-box">
+                <div className="notes-header">
+                  <h5>LLM notes</h5>
+                  {result?.factorCandidates && result.factorCandidates.length > 0 && (
+                    <div className="chip-row">
+                      {result.factorCandidates.slice(0, 12).map((factor) => (
+                        <span key={factor} className="chip">
+                          {factor}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <p className="meta">
+                  {result?.notes ?? "Run the scan to see model notes about column usefulness."}
+                </p>
+                {result?.uncertainties?.length ? (
+                  <ul className="note-list">
+                    {result.uncertainties.map((item) => (
+                      <li key={item} className="note-item">
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="hint">No uncertainties provided.</p>
                 )}
-                {columnScanPayload.knownStructuralColumns.values.length > 0 && (
-                  <span className="chip">
-                    Values: {columnScanPayload.knownStructuralColumns.values.join(", ")}
-                  </span>
+              </div>
+              <div className="notes-box">
+                <div className="notes-header">
+                  <h5>Final selection</h5>
+                  <p className="meta">
+                    {selectedColumnsFinal.length} of {columnSummaries.length} columns selected
+                  </p>
+                </div>
+                {selectedColumnsFinal.length > 0 ? (
+                  <div className="chip-row">
+                    {selectedColumnsFinal.map((name) => (
+                      <span key={name} className="chip strong-chip">
+                        {name}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="hint">No columns selected yet.</p>
                 )}
               </div>
             </div>
-          ) : (
-            <p className="hint">
-              Load a table and configure mapping to enable the column scan ping.
-            </p>
-          )}
-
-          {columnScanStatus?.kind === "success" && (
-            <div className="inline-success">
-              <p className="success-title">
-                {columnScanStatus.smokeTest
-                  ? "OpenAI smoke test OK"
-                  : "Column scan ping OK"}{" "}
-                (requestId: {columnScanStatus.requestId})
-              </p>
-              <p className="meta">
-                {columnScanStatus.smokeTest
-                  ? "The smoke test reached OpenAI and returned the expected JSON payload."
-                  : "The serverless route responded with the expected JSON payload."}
-              </p>
+            <div className="column-list">
+              {columnSummaries.length === 0 ? (
+                <p className="hint">Load a table or use the mock payload to run a scan.</p>
+              ) : (
+                columnSummaries.map((column) => {
+                  const role = result?.columnRoles?.[column.name];
+                  return (
+                    <label key={column.name} className="column-row">
+                      <div className="column-row-main">
+                        <input
+                          type="checkbox"
+                          checked={selectedColumnsFinal.includes(column.name)}
+                          onChange={() => handleColumnToggle(column.name)}
+                        />
+                        <div>
+                          <div className="column-title">
+                            <span>{column.name}</span>
+                            {role && <span className={`role-badge ${roleTone[role]}`}>{role}</span>}
+                          </div>
+                          <p className="meta">
+                            {column.typeHeuristic} · {formatNonNullRatio(column.nonNullRatio)}
+                          </p>
+                          {column.examples && column.examples.length > 0 && (
+                            <p className="meta examples-line">
+                              Examples: {column.examples.slice(0, 3).join(", ")}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </label>
+                  );
+                })
+              )}
             </div>
-          )}
-
-          {columnScanStatus?.kind === "error" && (
-            <div className="inline-error">
-              <p className="error-title">
-                {columnScanStatus.smokeTest
-                  ? "OpenAI smoke test failed"
-                  : "Column scan ping failed"}{" "}
-                (requestId: {columnScanStatus.requestId})
-              </p>
-              {columnScanStatus.message && <p className="meta">{columnScanStatus.message}</p>}
-            </div>
-          )}
+          </div>
         </div>
       </div>
 

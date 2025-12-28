@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 import { parseFile } from "./lib/import/parseFile";
-import { GroupingScreen, type ColumnScanPayload } from "./components/grouping/GroupingScreen";
+import { GroupingScreen } from "./components/grouping/GroupingScreen";
+import { buildColumnScanPayload } from "./lib/columnScan/payload";
 import { MappingPanel } from "./components/import/MappingPanel";
 import { ValidationScreen } from "./components/validation/ValidationScreen";
 import {
@@ -14,6 +15,7 @@ import {
 import type { AuditEntry, Dataset, RawTable } from "./lib/import/types";
 import type { ValidationReport } from "./lib/import/validation";
 import { generateImportValidationReport } from "./lib/import/validation";
+import type { ColumnScanPayload } from "./types/columnScan";
 
 // UI reference draft: design/kinetik-researcher.design-draft.html
 
@@ -344,27 +346,12 @@ function App() {
     setDataset((prev) => (prev ? { ...prev, audit: auditEntries } : prev));
   }, [auditEntries]);
 
-  const columnScanPayload = useMemo<ColumnScanPayload | null>(() => {
-    if (!normalizedActiveTable) {
-      return null;
-    }
-    const headers = normalizedActiveTable.headers.map((header) => String(header ?? ""));
-    const getHeader = (index: number | null): string | null =>
-      index !== null && headers[index] !== undefined ? headers[index] : null;
-    const valueHeaders = mappingSelection.valueColumnIndices
-      .map((index) => headers[index])
-      .filter((header): header is string => typeof header === "string");
-
-    return {
-      columns: headers,
-      experimentCount: mappingStats?.experimentCount ?? null,
-      knownStructuralColumns: {
-        time: getHeader(mappingSelection.timeColumnIndex),
-        values: valueHeaders,
-        experiment: getHeader(mappingSelection.experimentColumnIndex),
-        replicate: getHeader(mappingSelection.replicateColumnIndex)
-      }
-    };
+  const columnScanPayload = useMemo<ColumnScanPayload>(() => {
+    return buildColumnScanPayload({
+      normalizedTable: normalizedActiveTable,
+      mappingSelection,
+      mappingStats
+    });
   }, [mappingSelection, mappingStats, normalizedActiveTable]);
 
   useEffect(() => {
