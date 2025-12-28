@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 import { parseFile } from "./lib/import/parseFile";
-import { GroupingScreen, type ColumnScanPayload } from "./components/grouping/GroupingScreen";
+import { GroupingScreen } from "./components/grouping/GroupingScreen";
 import { MappingPanel } from "./components/import/MappingPanel";
 import { ValidationScreen } from "./components/validation/ValidationScreen";
 import {
@@ -14,6 +14,8 @@ import {
 import type { AuditEntry, Dataset, RawTable } from "./lib/import/types";
 import type { ValidationReport } from "./lib/import/validation";
 import { generateImportValidationReport } from "./lib/import/validation";
+import { buildColumnSummaries } from "./lib/columnScan/buildColumnSummaries";
+import type { ColumnScanPayload } from "./types/columnScan";
 
 // UI reference draft: design/kinetik-researcher.design-draft.html
 
@@ -348,22 +350,40 @@ function App() {
     if (!normalizedActiveTable) {
       return null;
     }
-    const headers = normalizedActiveTable.headers.map((header) => String(header ?? ""));
+    const columnProfiles = buildColumnSummaries(normalizedActiveTable);
+    if (columnProfiles.length === 0) {
+      return null;
+    }
     const getHeader = (index: number | null): string | null =>
-      index !== null && headers[index] !== undefined ? headers[index] : null;
+      index !== null && columnProfiles[index] ? columnProfiles[index].name : null;
     const valueHeaders = mappingSelection.valueColumnIndices
-      .map((index) => headers[index])
+      .map((index) => columnProfiles[index]?.name)
       .filter((header): header is string => typeof header === "string");
 
+    const structuralSummary = {
+      time: getHeader(mappingSelection.timeColumnIndex),
+      values: valueHeaders,
+      experiment: getHeader(mappingSelection.experimentColumnIndex),
+      replicate: getHeader(mappingSelection.replicateColumnIndex)
+    };
+    const knownStructuralColumns = Array.from(
+      new Set(
+        [
+          structuralSummary.time,
+          structuralSummary.experiment,
+          structuralSummary.replicate,
+          ...structuralSummary.values
+        ].filter(
+          (value): value is string => typeof value === "string" && value.trim().length > 0
+        )
+      )
+    );
+
     return {
-      columns: headers,
+      columns: columnProfiles,
       experimentCount: mappingStats?.experimentCount ?? null,
-      knownStructuralColumns: {
-        time: getHeader(mappingSelection.timeColumnIndex),
-        values: valueHeaders,
-        experiment: getHeader(mappingSelection.experimentColumnIndex),
-        replicate: getHeader(mappingSelection.replicateColumnIndex)
-      }
+      knownStructuralColumns,
+      structuralSummary
     };
   }, [mappingSelection, mappingStats, normalizedActiveTable]);
 
