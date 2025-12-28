@@ -443,6 +443,138 @@
   gap: 12px;
 }
 
+.canonicalization-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.canonicalization-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.canonicalization-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.canonicalization-actions select {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #cbd5f5;
+}
+
+.canonicalization-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.canonicalization-debug {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.json-output-box {
+  border: 1px solid #cbd5f5;
+  background: #f8fafc;
+  border-radius: 10px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.json-output-box h6 {
+  margin: 0;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #475569;
+}
+
+.json-output-box pre {
+  margin: 0;
+  padding: 8px;
+  background: #0b172a;
+  color: #cbd5f5;
+  border-radius: 8px;
+  font-size: 12px;
+  max-height: 240px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.canonicalization-groups {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.canonicalization-groups-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.canonicalization-group-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.canonicalization-group {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px;
+  background: #f8fafc;
+}
+
+.canonicalization-group .field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.canonicalization-group input,
+.canonicalization-group textarea {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #cbd5f5;
+}
+
+.canonicalization-group textarea {
+  resize: vertical;
+}
+
+.canonicalization-actions-footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.canonicalization-empty {
+  border: 1px dashed #cbd5f5;
+  border-radius: 10px;
+  padding: 10px;
+  background: #f8fafc;
+}
+
 .column-scan-header {
   display: flex;
   align-items: flex-start;

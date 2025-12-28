@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import OpenAI from "openai";
+import { loadOpenAI } from "./utils/loadOpenAI";
 
 export const config = {
   runtime: "nodejs"
@@ -364,6 +364,7 @@ export default async function handler(req: any, res: any) {
       });
     }
 
+    const OpenAI = await loadOpenAI();
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const { system, user } = buildPrompt(validated.value);
 
