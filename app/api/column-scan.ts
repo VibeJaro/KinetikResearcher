@@ -371,18 +371,24 @@ export default async function handler(req: any, res: any) {
     const timeout = setTimeout(() => controller.abort(), 25_000);
 
     let rawModelOutput = "";
+    const openAiRequest = {
+      model: "gpt-5.2",
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: user }
+      ],
+      temperature: 0,
+      max_completion_tokens: 600,
+      response_format: { type: "json_object" }
+    } as const;
+
+    if (process.env.NODE_ENV !== "production" && "max_tokens" in openAiRequest) {
+      throw new Error("max_tokens must not be present in OpenAI request payload");
+    }
+
     try {
       const completion = await openai.chat.completions.create(
-        {
-          model: "gpt-5.2",
-          messages: [
-            { role: "system", content: system },
-            { role: "user", content: user }
-          ],
-          temperature: 0,
-          max_tokens: 600,
-          response_format: { type: "json_object" }
-        },
+        openAiRequest,
         { signal: controller.signal }
       );
       rawModelOutput = completion.choices?.[0]?.message?.content ?? "";
