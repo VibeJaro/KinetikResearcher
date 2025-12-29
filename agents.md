@@ -21,8 +21,15 @@ Eine App, die Projektchemiker:innen und Ingenieur:innen Schritt für Schritt dur
 ---
 
 ## 2) Design-Draft (WICHTIG)
-- Referenz: `design/kinetik-researcher.design-draft.html` (kein Produktionscode, sondern UI-Vertrag).
-- Implementierungen in `app/` müssen das Draft-Layout **funktional** widerspiegeln (Bereiche, Navigation, Kerninteraktionen).
+- Referenz & Vorschau: `design/kinetik-researcher.design-draft.html` (UI/UX-Vertrag). Im Browser öffnen, um das neue End-to-End-Layout zu sehen.
+- Neues UI/UX-Grundgerüst: Sticky Header mit Nutzer-Badge, horizontaler 5-Schritte-Stepper mit Fortschrittsbalken, card-basierte Screens im mittig ausgerichteten Container.
+- Step-Spezifika aus dem Draft (müssen in der App erkennbar sein):
+  - Import: Drag-and-Drop Upload-Zone, danach Mapping-Card mit Dropdowns und „Weiter zur Validierung“-CTA.
+  - Validation: Checkliste mit Badge-Status (Laden/OK), KI-Analyse-Hinweisbox und CTA-Leiste „Zurück/Abschließen“ unten.
+  - Gruppierung: Grid aus farbmarkierten Group-Cards, „Neue Gruppe +“-Button und klarer „Bestätigen“-CTA.
+  - Modeling: Zweispaltig (links Fit-Parameter inkl. Arrhenius-Checkbox + R²-Summary, rechts Chart-Card mit Legende), Abschluss-CTA „Berechnen“.
+  - Report: Zweispaltig (links Chat mit Quick-Replies und „Report Generieren“, rechts PDF-Preview mit Titelbar + Download-CTA).
+- Implementierungen in `app/` müssen diese Layouts und Kerninteraktionen funktional widerspiegeln; visuelle Feinheiten dürfen mit Framework-Styles umgesetzt werden.
 - Bei Abweichungen: Implementierung anpassen oder Draft bewusst aktualisieren. Wichtige UI-Entscheidungen als ADR dokumentieren (`/docs/adr`).
 
 ---
