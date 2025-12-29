@@ -9,7 +9,17 @@ Ein geführter Kinetik-Assistent für Chemiker:innen und Ingenieur:innen, die sc
 - **Deterministischer Kern**: Fitting, Einheiten, Plots laufen als Code; LLM nur für Hinweise, Fragen, Textbausteine.
 
 ## Design-Referenz
-Das App-Layout folgt dem UI-Design-Draft unter `design/kinetik-researcher.design-draft.html` (Design-Vertrag, kein Produktionscode). Implementierungen in `app/` sollen die dortige Informationsarchitektur und Kerninteraktionen funktional widerspiegeln.
+Das App-Layout folgt dem UI-Design-Draft unter `design/kinetik-researcher.design-draft.html` (Design-Vertrag, kein Produktionscode). Öffne die Datei im Browser, um das neue End-to-End-UI zu sehen. Implementierungen in `app/` sollen die dortige Informationsarchitektur und Kerninteraktionen funktional widerspiegeln:
+- Sticky Header mit Nutzer-Badge
+- Horizontaler 5-Schritte-Stepper mit Fortschrittsbalken
+- Card-basierte Screens im mittig ausgerichteten Container
+
+### Screens aus dem Draft (verbindliche UX-Elemente)
+- **Import**: Drag-and-Drop Upload-Zone; danach Mapping-Card mit Dropdowns und CTA „Weiter zur Validierung“.
+- **Validation**: Checkliste mit Badge-Status (Laden/OK), KI-Hinweisbox und CTA-Leiste „Zurück/Abschließen“ unten.
+- **Grouping**: Grid aus farbmarkierten Group-Cards, „Neue Gruppe +“-Button, klarer „Bestätigen“-CTA.
+- **Modeling**: Zweispaltig – links Fit-Parameter inkl. Arrhenius-Checkbox + R²-Summary, rechts Chart-Card mit Legende; Abschluss-CTA „Berechnen“.
+- **Report**: Zweispaltig – links Chat mit Quick-Replies und „Report Generieren“, rechts PDF-Preview mit Titelbar + Download-CTA.
 
 ## Dev-Setup
 ```bash
