@@ -1,907 +1,611 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kinetik Researcher | Prozess-Analyse</title>
-    <style>
-        :root {
-            /* Color Palette - Scientific/Clean */
-            --primary: #2563eb;
-            --primary-hover: #1d4ed8;
-            --secondary: #64748b;
-            --bg-body: #f1f5f9;
-            --bg-surface: #ffffff;
-            --border: #e2e8f0;
-            --text-main: #1e293b;
-            --text-muted: #64748b;
-            
-            /* Status Colors */
-            --success: #10b981;
-            --success-bg: #ecfdf5;
-            --warning: #f59e0b;
-            --warning-bg: #fffbeb;
-            --error: #ef4444;
-            --error-bg: #fef2f2;
-            --info: #3b82f6;
-            --info-bg: #eff6ff;
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KinetixAI - Native Prototype</title>
+<style>
+    /* --- CSS RESET & VARIABLES --- */
+    :root {
+        --primary: #1e3a8a; /* Blue 900 */
+        --primary-hover: #172554;
+        --bg-color: #f8fafc; /* Slate 50 */
+        --card-bg: #ffffff;
+        --text-main: #1e293b; /* Slate 800 */
+        --text-muted: #64748b; /* Slate 500 */
+        --border: #e2e8f0;
+        --success: #10b981;
+        --warning: #f59e0b;
+    }
 
-            /* Spacing */
-            --space-xs: 0.25rem;
-            --space-sm: 0.5rem;
-            --space-md: 1rem;
-            --space-lg: 1.5rem;
-            --header-height: 60px;
-        }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background-color: var(--bg-color);
+        color: var(--text-main);
+        line-height: 1.5;
+        padding-bottom: 80px;
+    }
 
-        * { box-sizing: border-box; }
+    /* --- LAYOUT UTILS --- */
+    .container { max-width: 1024px; margin: 0 auto; padding: 0 20px; }
+    .flex { display: flex; }
+    .flex-col { flex-direction: column; }
+    .items-center { align-items: center; }
+    .justify-between { justify-content: space-between; }
+    .justify-center { justify-content: center; }
+    .justify-end { justify-content: flex-end; }
+    .gap-2 { gap: 0.5rem; }
+    .gap-4 { gap: 1rem; }
+    .gap-6 { gap: 1.5rem; }
+    .grid { display: grid; grid-template-columns: 1fr; gap: 1.5rem; }
+    @media(min-width: 768px) { .grid-cols-3 { grid-template-columns: repeat(3, 1fr); } }
+    .hidden { display: none !important; }
+    .w-full { width: 100%; }
+    .h-full { height: 100%; }
 
-        body {
-            font-family: 'Segoe UI', Inter, system-ui, sans-serif;
-            margin: 0;
-            padding: 0;
-            background-color: var(--bg-body);
-            color: var(--text-main);
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
+    /* --- COMPONENTS --- */
+    .btn {
+        display: inline-flex; align-items: center; justify-content: center;
+        padding: 0.6rem 1.2rem; border-radius: 0.5rem; font-weight: 500; cursor: pointer; transition: all 0.2s;
+        border: 1px solid transparent; font-size: 0.95rem;
+    }
+    .btn-primary { background-color: var(--primary); color: white; box-shadow: 0 4px 6px -1px rgba(30, 58, 138, 0.1); }
+    .btn-primary:hover { background-color: var(--primary-hover); }
+    .btn-secondary { background-color: white; border-color: #cbd5e1; color: var(--text-main); }
+    .btn-secondary:hover { background-color: #f1f5f9; }
+    .btn-ghost { background-color: transparent; color: var(--text-muted); }
+    .btn-ghost:hover { background-color: #f1f5f9; color: var(--text-main); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-        /* --- Layout Grid --- */
-        .app-container {
-            display: grid;
-            grid-template-columns: 280px 1fr 320px;
-            grid-template-rows: var(--header-height) 1fr;
-            height: 100vh;
-            width: 100vw;
-        }
+    .card {
+        background: var(--card-bg); border-radius: 0.75rem;
+        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1); border: 1px solid var(--border);
+        overflow: hidden;
+    }
+    .card-header { padding: 1rem 1.5rem; border-bottom: 1px solid var(--border); background-color: #f8fafc; display: flex; justify-content: space-between; align-items: center; }
+    .card-body { padding: 1.5rem; }
 
-        /* --- Header --- */
-        .header {
-            grid-column: 1 / -1;
-            background: var(--bg-surface);
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 var(--space-lg);
-            z-index: 10;
-        }
+    /* --- HEADER --- */
+    header { background: white; border-bottom: 1px solid var(--border); padding: 1rem 0; position: sticky; top: 0; z-index: 50; }
+    .logo-box { width: 40px; height: 40px; background: linear-gradient(135deg, #1e3a8a, #1e40af); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; margin-right: 12px; }
 
-        .brand {
-            font-weight: 700;
-            font-size: 1.2rem;
-            color: var(--text-main);
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .brand span { color: var(--primary); }
+    /* --- STEPPER --- */
+    .stepper-container { background: white; border-bottom: 1px solid var(--border); padding: 1.5rem 0; margin-bottom: 2rem; }
+    .stepper { display: flex; justify-content: space-between; position: relative; max-width: 900px; margin: 0 auto; }
+    .step-item { display: flex; flex-direction: column; align-items: center; position: relative; z-index: 10; flex: 1; }
+    .step-line { position: absolute; top: 20px; left: 0; width: 100%; height: 2px; background: #e2e8f0; z-index: 0; }
+    .step-line-fill { position: absolute; top: 20px; left: 0; height: 2px; background: var(--primary); z-index: 1; transition: width 0.3s ease; }
+    
+    .step-circle { 
+        width: 40px; height: 40px; border-radius: 50%; background: white; border: 2px solid #e2e8f0; 
+        display: flex; align-items: center; justify-content: center; font-weight: bold; color: #94a3b8;
+        transition: all 0.3s ease; margin-bottom: 0.5rem;
+    }
+    .step-item.active .step-circle { border-color: var(--primary); background: var(--primary); color: white; transform: scale(1.1); box-shadow: 0 0 0 4px rgba(30, 58, 138, 0.1); }
+    .step-item.completed .step-circle { border-color: var(--success); background: var(--success); color: white; }
+    .step-label { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; }
+    .step-item.active .step-label { color: var(--primary); }
 
-        .header-actions {
-            display: flex;
-            gap: var(--space-md);
-        }
+    /* --- ANIMATIONS --- */
+    .fade-in { animation: fadeIn 0.4s ease-out forwards; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .spin { animation: spin 1s linear infinite; }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
-        /* --- Sidebar (Experiments) --- */
-        .sidebar {
-            background: var(--bg-surface);
-            border-right: 1px solid var(--border);
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-        }
+    /* --- SPECIFIC VIEWS --- */
+    .upload-zone { 
+        border: 2px dashed #cbd5e1; border-radius: 1rem; padding: 4rem 2rem; 
+        text-align: center; cursor: pointer; transition: all 0.2s; background: white;
+    }
+    .upload-zone:hover { border-color: var(--primary); background: #eff6ff; }
+    
+    .check-item { display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: #f8fafc; border: 1px solid var(--border); border-radius: 0.5rem; margin-bottom: 0.75rem; }
+    .badge { padding: 0.25rem 0.75rem; border-radius: 99px; font-size: 0.75rem; font-weight: 600; display: flex; align-items: center; gap: 0.3rem;}
+    .badge-success { background: #d1fae5; color: #065f46; }
+    .badge-warning { background: #fef3c7; color: #92400e; }
+    .badge-loading { background: #eff6ff; color: #1e40af; }
 
-        .sidebar-header {
-            padding: var(--space-md);
-            border-bottom: 1px solid var(--border);
-            background: #f8fafc;
-            position: sticky;
-            top: 0;
-        }
-
-        .search-box {
-            width: 100%;
-            padding: 8px 12px;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            background: white;
-            font-size: 0.9rem;
-        }
-
-        .exp-list {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-
-        .exp-item {
-            padding: 12px var(--space-md);
-            border-bottom: 1px solid var(--border);
-            cursor: pointer;
-            transition: background 0.15s;
-        }
-
-        .exp-item:hover { background: var(--bg-body); }
-        .exp-item.active { background: var(--info-bg); border-left: 4px solid var(--primary); }
-
-        .exp-title { font-weight: 600; font-size: 0.9rem; margin-bottom: 4px; display: block; }
-        .exp-meta { font-size: 0.75rem; color: var(--text-muted); display: flex; justify-content: space-between; }
-
-        /* --- Main Workspace --- */
-        .workspace {
-            background: var(--bg-body);
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            position: relative;
-        }
-
-        /* Stepper */
-        .stepper {
-            background: var(--bg-surface);
-            padding: var(--space-md) var(--space-lg);
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .step {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            color: var(--text-muted);
-            font-size: 0.85rem;
-            font-weight: 500;
-            cursor: pointer;
-            position: relative;
-        }
-
-        .step.active { color: var(--primary); font-weight: 700; }
-        .step.completed { color: var(--success); }
-        .step-num {
-            width: 24px; height: 24px;
-            border-radius: 50%;
-            background: var(--border);
-            color: var(--text-muted);
-            display: flex; align-items: center; justify-content: center;
-            font-size: 0.75rem;
-        }
-        .step.active .step-num { background: var(--primary); color: white; }
-        .step.completed .step-num { background: var(--success); color: white; }
-
-        .step-line {
-            flex-grow: 1;
-            height: 2px;
-            background: var(--border);
-            margin: 0 10px;
-        }
-
-        /* Content Area */
-        .content-area {
-            flex: 1;
-            padding: var(--space-lg);
-            overflow-y: auto;
-        }
-
-        /* --- Right Panel (Audit Log) --- */
-        .right-panel {
-            background: #f8fafc;
-            border-left: 1px solid var(--border);
-            display: flex;
-            flex-direction: column;
-            height: 100%;
-        }
-
-        .panel-header {
-            padding: var(--space-md);
-            font-weight: 600;
-            border-bottom: 1px solid var(--border);
-            background: var(--bg-surface);
-            display: flex; justify-content: space-between;
-        }
-
-        .audit-list {
-            padding: var(--space-md);
-            overflow-y: auto;
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            gap: var(--space-md);
-        }
-
-        .audit-item {
-            background: var(--bg-surface);
-            padding: var(--space-sm);
-            border-radius: 6px;
-            border: 1px solid var(--border);
-            font-size: 0.8rem;
-            position: relative;
-            padding-left: 12px;
-        }
-        .audit-item::before {
-            content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
-            border-top-left-radius: 6px; border-bottom-left-radius: 6px;
-            background: var(--secondary);
-        }
-        .audit-item.decision::before { background: var(--success); }
-        .audit-item.system::before { background: var(--primary); }
-
-        .audit-time { font-size: 0.7rem; color: var(--text-muted); margin-bottom: 4px; }
-        .audit-text { line-height: 1.4; }
-
-        /* --- Components --- */
-        .btn {
-            padding: 8px 16px;
-            border-radius: 6px;
-            border: 1px solid transparent;
-            font-size: 0.9rem;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-weight: 500;
-        }
-        .btn-primary { background: var(--primary); color: white; }
-        .btn-primary:hover { background: var(--primary-hover); }
-        .btn-outline { background: white; border-color: var(--border); color: var(--text-main); }
-        .btn-outline:hover { background: var(--bg-body); }
-        .btn-sm { padding: 4px 8px; font-size: 0.8rem; }
-        .btn-success { background: var(--success); color: white; }
-
-        .card {
-            background: white;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: var(--space-md);
-            margin-bottom: var(--space-md);
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-        }
-
-        .badge {
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 0.7rem;
-            font-weight: 600;
-            text-transform: uppercase;
-        }
-        .badge.clean { background: var(--success-bg); color: var(--success); }
-        .badge.warning { background: var(--warning-bg); color: var(--warning); }
-        .badge.error { background: var(--error-bg); color: var(--error); }
-
-        /* --- Specific View Styles --- */
-        .mapping-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-        .mapping-table th, .mapping-table td { text-align: left; padding: 8px; border-bottom: 1px solid var(--border); }
-        .mapping-table th { color: var(--text-muted); font-weight: 500; }
-
-        .flag-item {
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 10px; border: 1px solid var(--border); border-radius: 6px;
-            margin-bottom: 8px; background: white;
-        }
-        .flag-severity { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 8px; }
-
-        .question-card { border-left: 4px solid var(--warning); }
-        .question-options { display: flex; gap: 8px; margin-top: 12px; }
-        
-        .chart-placeholder {
-            width: 100%; height: 250px;
-            background: #f8fafc; border: 1px solid var(--border);
-            border-radius: 6px; display: flex; align-items: center; justify-content: center;
-            position: relative;
-        }
-
-        /* Grid for Diagnostics */
-        .diag-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: var(--space-md); }
-
-        /* Report Preview */
-        .report-preview {
-            background: white; padding: 40px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-            max-width: 800px; margin: 0 auto;
-            font-family: 'Times New Roman', serif;
-            line-height: 1.6;
-        }
-        .report-preview h1 { font-size: 1.5rem; margin-bottom: 0.5rem; font-family: 'Segoe UI', sans-serif; }
-        .report-preview h2 { font-size: 1.2rem; border-bottom: 1px solid #ddd; margin-top: 2rem; font-family: 'Segoe UI', sans-serif; }
-
-        /* Toggle Switch */
-        .toggle-switch { display: flex; align-items: center; gap: 8px; cursor: pointer; }
-        .toggle-input { display: none; }
-        .toggle-slider {
-            width: 36px; height: 20px; background: #cbd5e1;
-            border-radius: 20px; position: relative; transition: .3s;
-        }
-        .toggle-slider::before {
-            content: ""; position: absolute; height: 16px; width: 16px;
-            left: 2px; bottom: 2px; background: white; border-radius: 50%; transition: .3s;
-        }
-        .toggle-input:checked + .toggle-slider { background: var(--primary); }
-        .toggle-input:checked + .toggle-slider::before { transform: translateX(16px); }
-
-        /* SVG Line Chart Styles */
-        svg.chart { width: 100%; height: 100%; overflow: visible; }
-        path.line { fill: none; stroke: var(--primary); stroke-width: 2; vector-effect: non-scaling-stroke; }
-        path.line-model { fill: none; stroke: var(--error); stroke-width: 2; stroke-dasharray: 4; vector-effect: non-scaling-stroke; opacity: 0.8; }
-        .axis { stroke: var(--text-muted); stroke-width: 1; }
-        text.label { font-size: 10px; fill: var(--text-muted); font-family: sans-serif; }
-
-    </style>
+    .group-card { border-left: 4px solid transparent; transition: transform 0.2s; }
+    .group-card:hover { transform: translateY(-2px); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+    
+    .chat-bubble { padding: 1rem; border-radius: 1rem; max-width: 85%; font-size: 0.9rem; margin-bottom: 1rem; animation: fadeIn 0.3s; }
+    .chat-bot { background: white; border: 1px solid var(--border); border-top-left-radius: 0; align-self: flex-start; margin-right: auto; }
+    .chat-user { background: #1e293b; color: white; border-top-right-radius: 0; align-self: flex-end; margin-left: auto; }
+</style>
 </head>
 <body>
 
-<div class="app-container">
-    <!-- HEADER -->
-    <header class="header" id="header">
-        <div class="brand">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M2 20h20"></path><path d="M18 12h-6l-3 7h-6"></path><path d="M5 2l8 10"></path>
-            </svg>
-            Kinetik<span>Researcher</span>
-        </div>
-        
-        <div class="header-actions">
-            <span class="badge warning" id="global-status">In Bearbeitung</span>
-            <button class="btn btn-primary btn-sm" onclick="app.showToast('Projekt gespeichert')">Save Project</button>
-            <button class="btn btn-outline btn-sm">Help</button>
+    <!-- Header -->
+    <header>
+        <div class="container flex items-center justify-between">
+            <div class="flex items-center">
+                <div class="logo-box">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v7.31l-6.29 10.83a2 2 0 0 0 1.73 2.86h13.12a2 2 0 0 0 1.73-2.86L14 9.31V2 M8.5 2h7 M10 16h4"/></svg>
+                </div>
+                <div>
+                    <h1 style="font-size: 1.25rem; font-weight: 700; line-height: 1.1;">Kinetix<span style="color: #2563eb">AI</span></h1>
+                    <p style="font-size: 0.7rem; color: #64748b; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;">Automated Analysis</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-4">
+                <span style="font-size: 0.85rem; font-weight: 600; color: #334155;">Dr. J. Doe</span>
+                <div style="width: 32px; height: 32px; background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: bold;">JD</div>
+            </div>
         </div>
     </header>
 
-    <!-- LEFT SIDEBAR: EXPERIMENTS -->
-    <aside class="sidebar">
-        <div class="sidebar-header">
-            <input type="text" class="search-box" placeholder="Experimente suchen..." onkeyup="app.filterExperiments(this.value)">
-            <div style="margin-top: 8px; display: flex; gap: 4px;">
-                <button class="btn btn-outline btn-sm" style="flex:1">Filter</button>
-                <button class="btn btn-outline btn-sm" style="flex:1">Sort</button>
-            </div>
+    <!-- Stepper -->
+    <div class="stepper-container">
+        <div class="stepper">
+            <div class="step-line-fill" id="progress-bar" style="width: 0%;"></div>
+            <!-- Steps will be injected by JS -->
         </div>
-        <ul class="exp-list" id="exp-list">
-            <!-- Experiments rendered via JS -->
-        </ul>
-    </aside>
+    </div>
 
-    <!-- MAIN WORKSPACE -->
-    <main class="workspace">
-        <!-- Stepper Navigation -->
-        <div class="stepper" id="stepper">
-            <!-- Stepper rendered via JS -->
-        </div>
-
-        <!-- Dynamic Content Area -->
-        <div class="content-area" id="main-content">
-            <!-- View Content injected here -->
-        </div>
+    <!-- Main Content -->
+    <main class="container" id="app-content">
+        <!-- Views will be injected here -->
     </main>
 
-    <!-- RIGHT PANEL: AUDIT LOG -->
-    <aside class="right-panel">
-        <div class="panel-header">
-            Audit Log / Entscheidungen
-            <button class="btn btn-outline btn-sm" style="border:none">Export</button>
-        </div>
-        <div class="audit-list" id="audit-log">
-            <!-- Log entries rendered via JS -->
-            <div class="audit-item system">
-                <div class="audit-time">Just now</div>
-                <div class="audit-text">Session started. User: Dr. Weber</div>
-            </div>
-        </div>
-    </aside>
-</div>
+    <!-- --- JAVASCRIPT LOGIC --- -->
+    <script>
+        // --- STATE & DATA ---
+        const state = {
+            step: 0,
+            file: null,
+            validationStatus: 'pending',
+            groups: [],
+            chatMessages: []
+        };
 
-<!-- JAVASCRIPT LOGIC -->
-<script>
-    // --- Mock Data & Config ---
-    const steps = [
-        { id: 'import', label: '1. Import & Map' },
-        { id: 'validate', label: '2. Validation' },
-        { id: 'questions', label: '3. Questions' },
-        { id: 'modeling', label: '4. Modeling' },
-        { id: 'diagnostics', label: '5. Diagnostics' },
-        { id: 'report', label: '6. Report' }
-    ];
+        const steps = [
+            { label: 'Import', icon: `<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>` },
+            { label: 'Validierung', icon: `<polyline points="20 6 9 17 4 12"/>` },
+            { label: 'Gruppierung', icon: `<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>` },
+            { label: 'Modellierung', icon: `<path d="M10 2v7.31l-6.29 10.83a2 2 0 0 0 1.73 2.86h13.12a2 2 0 0 0 1.73-2.86L14 9.31V2 M8.5 2h7 M10 16h4"/>` },
+            { label: 'Report', icon: `<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>` }
+        ];
 
-    const experiments = Array.from({ length: 20 }, (_, i) => ({
-        id: `EXP-2024-${100 + i}`,
-        name: `Reaction_Series_${String.fromCharCode(65 + (i % 5))}_Run${Math.floor(i/5)+1}`,
-        status: i < 5 ? 'error' : (i < 12 ? 'warning' : 'clean'),
-        date: '2024-10-22',
-        dataPoints: 120 + Math.floor(Math.random() * 50)
-    }));
+        // --- RENDER HELPERS ---
+        function renderIcon(path, size=20) {
+            return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
+        }
 
-    const questions = [
-        { id: 1, q: "Einheit der Zeitspalte 't_react' ist nicht eindeutig.", context: "Wertebereich: 0 - 180. Könnte [min] oder [s] sein.", options: ['Minuten [min]', 'Sekunden [s]', 'Stunden [h]'], resolved: false, answer: null },
-        { id: 2, q: "Temperatur-Sprung in EXP-2024-103 bei t=40.", context: "T steigt um 5°C. Ist das beabsichtigt (Rampe) oder Exothermie?", options: ['Beabsichtigt (Protokoll)', 'Reaktionswärme (Exotherm)', 'Messfehler (Ignorieren)'], resolved: false, answer: null },
-        { id: 3, q: "Hoher Initialwert für Nebenprodukt B.", context: "Startet bei 2.5% statt 0%. Verunreinigung im Edukt?", options: ['Ja, Edukt-Verunreinigung', 'Nein, Kalibrierfehler', 'Unbekannt (als Variable fitten)'], resolved: false, answer: null }
-    ];
-
-    const hypotheses = [
-        { id: 'h1', title: 'Katalysator-Deaktivierung', likelihood: 'High', reason: 'Reaktionsrate fällt stärker als durch Eduktverbrauch erklärbar.', checked: false },
-        { id: 'h2', title: 'Induktionsphase', likelihood: 'Low', reason: 'Kein sigmoider Startverlauf in den ersten 5 Minuten erkennbar.', checked: false },
-        { id: 'h3', title: 'Stofftransport-Limitierung', likelihood: 'Medium', reason: 'Hohe Reaktionsgeschwindigkeit bei niedriger Rührerdrehzahl.', checked: false }
-    ];
-
-    // --- State Management ---
-    const state = {
-        currentStepIndex: 0,
-        selectedExpId: experiments[0].id,
-        auditLog: [],
-        questions: [...questions],
-        hypotheses: [...hypotheses],
-        modelResult: null
-    };
-
-    // --- App Logic ---
-    const app = {
-        init() {
-            this.renderSidebar();
-            this.renderStepper();
-            this.renderView();
-            this.addToLog('System', 'Projekt "Kinetic_Study_V2" geladen.');
-        },
-
-        // Rendering Components
-        renderSidebar() {
-            const list = document.getElementById('exp-list');
-            list.innerHTML = experiments.map(exp => `
-                <li class="exp-item ${exp.id === state.selectedExpId ? 'active' : ''}" onclick="app.selectExperiment('${exp.id}')">
-                    <span class="exp-title">${exp.name}</span>
-                    <div class="exp-meta">
-                        <span>${exp.id}</span>
-                        <span class="badge ${exp.status}">${exp.status}</span>
-                    </div>
-                </li>
-            `).join('');
-        },
-
-        renderStepper() {
-            const container = document.getElementById('stepper');
-            container.innerHTML = steps.map((step, index) => {
-                let cls = 'step';
-                if (index === state.currentStepIndex) cls += ' active';
-                if (index < state.currentStepIndex) cls += ' completed';
-                return `
-                    <div class="${cls}" onclick="app.goToStep(${index})">
-                        <div class="step-num">${index < state.currentStepIndex ? '✓' : index + 1}</div>
-                        <span>${step.label}</span>
-                    </div>
-                    ${index < steps.length - 1 ? '<div class="step-line"></div>' : ''}
-                `;
-            }).join('');
-        },
-
-        renderAuditLog() {
-            const container = document.getElementById('audit-log');
-            container.innerHTML = state.auditLog.map(entry => `
-                <div class="audit-item ${entry.type === 'Decision' ? 'decision' : 'system'}">
-                    <div class="audit-time">${entry.time}</div>
-                    <div class="audit-text"><b>${entry.type}:</b> ${entry.msg}</div>
-                </div>
-            `).join('') + '<div style="margin-top:auto; font-size:0.75rem; color:#94a3b8; text-align:center;">Log Ende</div>';
-            container.scrollTop = container.scrollHeight;
-        },
-
-        // Actions
-        selectExperiment(id) {
-            state.selectedExpId = id;
-            this.renderSidebar();
-            this.renderView(); // Re-render current view with new context
-        },
-
-        goToStep(index) {
-            state.currentStepIndex = index;
-            this.renderStepper();
-            this.renderView();
-        },
-
-        addToLog(type, msg) {
-            const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second:'2-digit' });
-            state.auditLog.push({ type, msg, time });
-            this.renderAuditLog();
-        },
-
-        showToast(msg) {
-            // Simple visual feedback
-            const btn = document.querySelector('.btn-primary');
-            const oldText = btn.innerText;
-            btn.innerText = "Saved!";
-            btn.style.background = "var(--success)";
-            setTimeout(() => {
-                btn.innerText = oldText;
-                btn.style.background = "";
-            }, 1500);
-        },
-
-        // View Routing
-        renderView() {
-            const content = document.getElementById('main-content');
-            const stepId = steps[state.currentStepIndex].id;
-            const currentExp = experiments.find(e => e.id === state.selectedExpId);
-
-            switch(stepId) {
-                case 'import':
-                    content.innerHTML = this.views.import(currentExp);
-                    break;
-                case 'validate':
-                    content.innerHTML = this.views.validate(currentExp);
-                    break;
-                case 'questions':
-                    content.innerHTML = this.views.questions();
-                    break;
-                case 'modeling':
-                    content.innerHTML = this.views.modeling(currentExp);
-                    this.drawChart('chart-container', false); // Draw raw data
-                    break;
-                case 'diagnostics':
-                    content.innerHTML = this.views.diagnostics();
-                    break;
-                case 'report':
-                    content.innerHTML = this.views.report();
-                    break;
+        function updateStepper() {
+            const stepperEl = document.querySelector('.stepper');
+            const progressEl = document.getElementById('progress-bar');
+            
+            // Re-render steps if needed (or just update classes)
+            // For simplicity, we just clear and rebuild the markers, but keep the bar
+            const existingMarkers = stepperEl.querySelectorAll('.step-item');
+            if(existingMarkers.length === 0) {
+                // Initial build
+                steps.forEach((s, idx) => {
+                    const div = document.createElement('div');
+                    div.className = 'step-item';
+                    div.innerHTML = `
+                        <div class="step-circle">${idx + 1}</div>
+                        <span class="step-label">${s.label}</span>
+                    `;
+                    stepperEl.appendChild(div);
+                });
             }
-        },
 
-        // --- View Templates ---
-        views: {
-            import(exp) {
-                return `
-                    <h2>Daten Import & Mapping</h2>
-                    <div class="card" style="border-style: dashed; text-align: center; padding: 40px; background: #f8fafc;">
-                        <div style="color: var(--primary); font-size: 2rem; margin-bottom: 10px;">☁️</div>
-                        <p>Drag & Drop CSV/Excel Dateien hierher oder <a href="#" style="color:var(--primary)">durchsuchen</a>.</p>
-                        <p style="font-size: 0.8rem; color: var(--text-muted)">Aktuell geladen: 20 Dateien</p>
+            const markers = document.querySelectorAll('.step-item');
+            markers.forEach((m, idx) => {
+                m.className = 'step-item'; // reset
+                m.querySelector('.step-circle').innerHTML = idx < state.step 
+                    ? renderIcon(`<polyline points="20 6 9 17 4 12"/>`, 16) 
+                    : (idx === state.step ? renderIcon(steps[idx].icon, 18) : idx + 1);
+
+                if (idx < state.step) m.classList.add('completed');
+                if (idx === state.step) m.classList.add('active');
+            });
+
+            progressEl.style.width = `${(state.step / (steps.length - 1)) * 100}%`;
+        }
+
+        function setStep(newStep) {
+            state.step = newStep;
+            updateStepper();
+            renderView();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // --- VIEWS ---
+
+        function renderView() {
+            const app = document.getElementById('app-content');
+            app.innerHTML = ''; // Clear
+
+            switch(state.step) {
+                case 0: renderImport(app); break;
+                case 1: renderValidation(app); break;
+                case 2: renderGrouping(app); break;
+                case 3: renderModeling(app); break;
+                case 4: renderReporting(app); break;
+            }
+        }
+
+        // STEP 1: IMPORT
+        function renderImport(container) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'fade-in';
+            
+            if (!state.file) {
+                wrapper.innerHTML = `
+                    <div style="text-align: center; margin-bottom: 2rem;">
+                        <h2 style="font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem;">Daten importieren</h2>
+                        <p style="color: var(--text-muted);">Laden Sie Ihre Rohdaten als Excel (.xlsx) oder CSV Datei hoch.</p>
                     </div>
-                    
-                    <h3>Spalten Zuordnung (${exp.name})</h3>
+                    <div class="upload-zone" onclick="simulateUpload()">
+                        <div style="width: 64px; height: 64px; background: #eff6ff; color: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem auto;">
+                            ${renderIcon(steps[0].icon, 32)}
+                        </div>
+                        <h3 style="font-size: 1.1rem; font-weight: 600; margin-bottom: 0.5rem;">Datei auswählen oder hier ablegen</h3>
+                        <p style="font-size: 0.9rem; color: var(--text-muted);">Maximale Dateigröße 50MB</p>
+                    </div>
+                `;
+            } else {
+                wrapper.innerHTML = `
+                    <div style="text-align: center; margin-bottom: 2rem;">
+                        <h2 style="font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem;">Daten importieren</h2>
+                    </div>
                     <div class="card">
-                        <table class="mapping-table">
-                            <thead><tr><th>Quell-Spalte</th><th>Vorschau (Zeile 1)</th><th>Semantische Rolle</th><th>Einheit</th></tr></thead>
-                            <tbody>
-                                <tr><td>Time_min</td><td>0.00</td>
-                                    <td><select class="btn btn-outline btn-sm"><option selected>Zeit (t)</option></select></td>
-                                    <td><span class="badge clean">min</span></td>
-                                </tr>
-                                <tr><td>React_Temp</td><td>25.4</td>
-                                    <td><select class="btn btn-outline btn-sm"><option selected>Temperatur (T)</option></select></td>
-                                    <td><span class="badge clean">°C</span></td>
-                                </tr>
-                                <tr><td>Conc_A</td><td>1.20</td>
-                                    <td><select class="btn btn-outline btn-sm"><option selected>Konzentration (A)</option></select></td>
-                                    <td><span class="badge clean">mol/L</span></td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                `;
-            },
-            validate(exp) {
-                return `
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-                        <h2>Validierung: ${exp.name}</h2>
-                        <div>
-                            <span class="badge error">3 Errors</span>
-                            <span class="badge warning">2 Warnings</span>
+                        <div class="card-header">
+                            <h3 style="font-weight: 600;">Spalten zuweisen (Mapping)</h3>
+                            <button class="btn btn-ghost" onclick="resetFile()" style="color: #ef4444; font-size: 0.85rem;">
+                                ${renderIcon('<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>', 14)} 
+                                <span style="margin-left: 6px">Entfernen</span>
+                            </button>
                         </div>
-                    </div>
-
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                        <div>
-                            <h4 style="margin-top:0">Erkannte Flags</h4>
-                            ${['Zeitstempel nicht monoton (Zeile 45-48)', 'Temperatur Ausreißer (> 3 Sigma)', 'Konzentration negativ (Zeile 102)'].map(err => `
-                                <div class="flag-item" style="border-left: 4px solid var(--error);">
+                        <div class="card-body">
+                            <div class="grid grid-cols-3" style="gap: 2rem;">
+                                ${['Zeit-Achse (min/h)', 'Messsignal (y-Achse)', 'Experiment ID'].map((label, i) => `
                                     <div>
-                                        <div style="font-weight:600; font-size:0.9rem;">${err}</div>
-                                        <div style="font-size:0.8rem; color:var(--text-muted);">Validation Rule #104</div>
+                                        <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; font-size: 0.9rem;">${label}</label>
+                                        <select style="width: 100%; padding: 0.6rem; border-radius: 0.5rem; border: 1px solid var(--border); background: #f8fafc;">
+                                            <option disabled selected>Bitte wählen...</option>
+                                            <option>Column A: Time [min]</option>
+                                            <option>Column B: Temp [C]</option>
+                                            <option>Column C: Absorbance</option>
+                                        </select>
                                     </div>
-                                    <button class="btn btn-outline btn-sm" onclick="app.goToStep(2)">Ask User</button>
-                                </div>
-                            `).join('')}
-                             <div class="flag-item" style="border-left: 4px solid var(--warning);">
+                                `).join('')}
+                            </div>
+                            <div class="flex justify-end" style="margin-top: 2rem;">
+                                <button class="btn btn-primary" onclick="startValidation()">
+                                    Weiter zur Validierung 
+                                    <span style="margin-left: 8px">${renderIcon('<polyline points="9 18 15 12 9 6"/>', 16)}</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            container.appendChild(wrapper);
+        }
+
+        function simulateUpload() {
+            const zone = document.querySelector('.upload-zone');
+            zone.innerHTML = `<div style="color: var(--primary);">${renderIcon('<path d="M21 12a9 9 0 1 1-6.219-8.56"/>', 32)}<br><br>Lade Datei...</div>`;
+            zone.querySelector('svg').classList.add('spin');
+            setTimeout(() => {
+                state.file = { name: 'experiment_data.xlsx' };
+                renderView();
+            }, 1000);
+        }
+
+        function resetFile() { state.file = null; renderView(); }
+
+        function startValidation() {
+            state.validationStatus = 'scanning';
+            setStep(1);
+            // Simulate scan
+            setTimeout(() => {
+                state.validationStatus = 'valid';
+                renderView();
+            }, 2000);
+        }
+
+        // STEP 2: VALIDATION
+        function renderValidation(container) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'fade-in';
+            
+            const checks = [
+                { label: 'Dateiformat & Struktur', detail: 'Excel (.xlsx) erkannt' },
+                { label: 'Numerische Konsistenz', detail: 'Spalten A, C sind numerisch' },
+                { label: 'Zeitstempel-Check', detail: 'Keine Lücken gefunden' },
+                { label: 'Ausreißer-Analyse', detail: '3 Anomalien markiert' }
+            ];
+
+            const isLoading = state.validationStatus === 'scanning';
+
+            wrapper.innerHTML = `
+                <div style="text-align: center; margin-bottom: 2rem;">
+                    <h2 style="font-size: 1.5rem; font-weight: 700;">Daten-Check</h2>
+                    <p style="color: var(--text-muted);">Qualitätssicherung läuft automatisch.</p>
+                </div>
+                <div class="card" style="max-width: 800px; margin: 0 auto;">
+                    <div class="card-body">
+                        ${checks.map((c, i) => `
+                            <div class="check-item">
                                 <div>
-                                    <div style="font-weight:600; font-size:0.9rem;">Rauschen hoch in Endphase</div>
+                                    <div style="font-weight: 600;">${c.label}</div>
+                                    <div style="font-size: 0.8rem; color: var(--text-muted);">${c.detail}</div>
                                 </div>
-                                <button class="btn btn-outline btn-sm">Ignore</button>
-                            </div>
-                        </div>
-                        
-                        <div class="card">
-                            <h4>Rohdaten Vorschau (Plot)</h4>
-                            <div class="chart-placeholder">
-                                <span style="color:var(--text-muted)">[Mini-Plot der Ausreißer]</span>
-                            </div>
-                            <div style="margin-top:10px; font-size:0.8rem; color:var(--text-muted);">
-                                Zeile 45: t=10.5, t_next=10.2 (Fehler)<br>
-                                Zeile 46: t=10.6
-                            </div>
-                        </div>
-                    </div>
-                `;
-            },
-            questions() {
-                const activeQ = state.questions.find(q => !q.resolved);
-                if (!activeQ) return `
-                    <div style="text-align:center; margin-top:50px;">
-                        <div style="font-size:3rem;">🎉</div>
-                        <h2>Alle Fragen geklärt!</h2>
-                        <p>Sie können mit der Modellierung fortfahren.</p>
-                        <button class="btn btn-primary" onclick="app.goToStep(3)">Zur Modellierung</button>
-                    </div>`;
-
-                return `
-                    <h2>Human-in-the-Loop Klärung</h2>
-                    <p style="color:var(--text-muted)">Die KI benötigt Expertenwissen für ${state.questions.filter(q=>!q.resolved).length} offene Punkte.</p>
-                    
-                    <div class="card question-card" style="margin-top:20px; padding:30px;">
-                        <div class="badge warning" style="margin-bottom:10px;">Frage #${activeQ.id}</div>
-                        <h3 style="margin-top:0">${activeQ.q}</h3>
-                        <p style="font-style:italic; color:#475569;">Context: ${activeQ.context}</p>
-                        
-                        <div class="question-options">
-                            ${activeQ.options.map(opt => `
-                                <button class="btn btn-outline" onclick="app.resolveQuestion(${activeQ.id}, '${opt}')">${opt}</button>
-                            `).join('')}
-                        </div>
-                        
-                        <div style="margin-top:20px; border-top:1px solid #eee; padding-top:15px;">
-                            <label style="font-size:0.8rem; font-weight:600;">Freitext Anmerkung (Optional)</label>
-                            <input type="text" class="search-box" style="margin-top:5px;" placeholder="Z.B. Begründung für Audit Log...">
-                        </div>
-                    </div>
-                    
-                    <div style="margin-top:10px;">
-                        <button class="btn btn-outline btn-sm" style="color:var(--text-muted)">Frage überspringen</button>
-                    </div>
-                `;
-            },
-            modeling(exp) {
-                return `
-                    <div style="display: grid; grid-template-columns: 250px 1fr; gap: 20px; height: 100%;">
-                        <!-- Left Controls -->
-                        <div style="display:flex; flex-direction:column; gap:15px;">
-                            <h3>Modellierung</h3>
-                            
-                            <label class="toggle-switch">
-                                <span style="font-size:0.9rem;">Multi-Experiment Fit</span>
-                                <input type="checkbox" class="toggle-input">
-                                <span class="toggle-slider"></span>
-                            </label>
-
-                            <div class="card">
-                                <label style="font-size:0.8rem; font-weight:600;">Modell-Typ</label>
-                                <select class="search-box" style="margin-bottom:10px;">
-                                    <option>Kinetik n-ter Ordnung (A -> P)</option>
-                                    <option>Folgereaktion (A -> B -> C)</option>
-                                    <option>Michaelis-Menten</option>
-                                </select>
-
-                                <label style="font-size:0.8rem; font-weight:600;">Solver Einstellungen</label>
-                                <div style="margin-top:5px; font-size:0.9rem;">
-                                    <label><input type="checkbox" checked> Temp-Abhängigkeit (Arrhenius)</label><br>
-                                    <label><input type="checkbox"> Gewichtete Residuen</label>
+                                <div>
+                                    ${isLoading && i > 1 ? 
+                                        `<span class="badge badge-loading">${renderIcon('<path d="M21 12a9 9 0 1 1-6.219-8.56"/>', 12)} <span style="margin-left:4px">Prüfe...</span></span>` : 
+                                        `<span class="badge badge-success">${renderIcon('<polyline points="20 6 9 17 4 12"/>', 12)} <span style="margin-left:4px">OK</span></span>`
+                                    }
                                 </div>
-                            </div>
-
-                            <button class="btn btn-primary" onclick="app.runFit()">Fit Simulieren ▶</button>
-                            
-                            ${state.modelResult ? `
-                                <div class="card" style="background:#ecfdf5; border-color:#10b981;">
-                                    <h4 style="margin:0; color:#065f46;">Fit Konvergiert</h4>
-                                    <div style="font-size:0.85rem; margin-top:5px;">
-                                        RMSE: 0.042<br>
-                                        R²: 0.985
-                                    </div>
-                                </div>
-                            ` : ''}
-                        </div>
-
-                        <!-- Main Plot Area -->
-                        <div style="display:flex; flex-direction:column; gap:10px;">
-                            <div class="chart-placeholder" id="chart-container" style="flex:1; background:white;">
-                                <!-- SVG Chart inserted here -->
-                            </div>
-                            
-                            ${state.modelResult ? `
-                                <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px;">
-                                    <div class="card"><div style="font-size:0.8rem; color:var(--text-muted);">k (Rate Constant)</div><div style="font-weight:bold; font-size:1.1rem;">0.024 <span style="font-size:0.8rem; font-weight:normal;">1/min</span></div></div>
-                                    <div class="card"><div style="font-size:0.8rem; color:var(--text-muted);">Ea (Activation Energy)</div><div style="font-weight:bold; font-size:1.1rem;">45.2 <span style="font-size:0.8rem; font-weight:normal;">kJ/mol</span></div></div>
-                                    <div class="card"><div style="font-size:0.8rem; color:var(--text-muted);">n (Order)</div><div style="font-weight:bold; font-size:1.1rem;">1.05 <span style="font-size:0.8rem; font-weight:normal;">(fixed ~1)</span></div></div>
-                                </div>
-                            ` : '<div style="text-align:center; padding:20px; color:var(--text-muted); border:1px dashed var(--border); border-radius:6px;">Klicken Sie "Fit Simulieren" für Ergebnisse</div>'}
-                        </div>
-                    </div>
-                `;
-            },
-            diagnostics() {
-                return `
-                    <h2>Diagnose & Hypothesen</h2>
-                    <p style="color:var(--text-muted); margin-bottom:20px;">Automatisierte Überprüfung chemisch-physikalischer Phänomene basierend auf Residuen.</p>
-
-                    <div class="diag-grid">
-                        ${state.hypotheses.map(h => `
-                            <div class="card" style="border-top: 4px solid ${h.likelihood === 'High' ? 'var(--error)' : (h.likelihood === 'Medium' ? 'var(--warning)' : 'var(--success)')}">
-                                <div style="display:flex; justify-content:space-between;">
-                                    <h3 style="margin:0; font-size:1rem;">${h.title}</h3>
-                                    <span class="badge ${h.likelihood === 'High' ? 'error' : (h.likelihood === 'Medium' ? 'warning' : 'clean')}">${h.likelihood} Prob.</span>
-                                </div>
-                                <p style="font-size:0.9rem; color:var(--text-muted); min-height:40px;">${h.reason}</p>
-                                
-                                ${h.checked ? 
-                                    `<div style="background:#f1f5f9; padding:8px; border-radius:4px; font-size:0.85rem; margin-top:10px;">
-                                        ✅ <b>Check Result:</b> Keine signifikante Verbesserung des Modells bei Einbezug (AIC steigt).
-                                     </div>` 
-                                    : 
-                                    `<button class="btn btn-outline btn-sm" style="width:100%; margin-top:10px;" onclick="app.checkHypothesis('${h.id}')">Hypothese Prüfen</button>`
-                                }
                             </div>
                         `).join('')}
-                    </div>
 
-                    <h3 style="margin-top:30px;">Vorschläge für Folge-Experimente</h3>
-                    <ul style="background:white; border:1px solid var(--border); border-radius:6px; padding:0; list-style:none;">
-                        <li style="padding:15px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
-                            <div>
-                                <b>Variation Edukt-Konzentration</b><br>
-                                <span style="font-size:0.85rem; color:var(--text-muted);">Um Ordnung n=2 vs n=1 sicher zu unterscheiden.</span>
+                        ${!isLoading ? `
+                            <div style="background: #eff6ff; border: 1px solid #dbeafe; padding: 1rem; border-radius: 0.5rem; display: flex; gap: 1rem; margin-top: 1.5rem;">
+                                <div style="color: var(--primary);">${renderIcon('<path d="M12 2a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2v0a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z"/><path d="M4 11v2a8 8 0 0 0 16 0v-2"/><path d="M12 22v-4"/>', 24)}</div>
+                                <div>
+                                    <div style="font-weight: 700; color: var(--primary); font-size: 0.9rem;">KI-Analyse</div>
+                                    <p style="font-size: 0.9rem; color: #334155;">Die Datenqualität ist sehr hoch (Score: 98/100). Ich habe 3 potenzielle Ausreißer in Exp_004 gefunden, diese aber für den nächsten Schritt bereits vorselektiert.</p>
+                                </div>
                             </div>
-                            <button class="btn btn-primary btn-sm">Planen</button>
-                        </li>
-                        <li style="padding:15px; display:flex; justify-content:space-between; align-items:center;">
-                            <div>
-                                <b>Isothermer Lauf bei 40°C</b><br>
-                                <span style="font-size:0.85rem; color:var(--text-muted);">Datenlücke im mittleren Temperaturbereich schließen.</span>
-                            </div>
-                            <button class="btn btn-primary btn-sm">Planen</button>
-                        </li>
-                    </ul>
-                `;
-            },
-            report() {
-                const now = new Date().toLocaleDateString();
-                return `
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-                        <h2>Finaler Report</h2>
-                        <div style="display:flex; gap:10px;">
-                            <button class="btn btn-outline" onclick="app.showToast('JSON kopiert')">Copy JSON</button>
-                            <button class="btn btn-primary" onclick="window.print()">Export PDF</button>
+                        ` : ''}
+
+                        <div class="flex justify-between" style="margin-top: 2rem; border-top: 1px solid var(--border); padding-top: 1.5rem;">
+                            <button class="btn btn-ghost" onclick="setStep(0)">Zurück</button>
+                            <button class="btn btn-primary" ${isLoading ? 'disabled' : ''} onclick="setStep(2)">
+                                Abschließen
+                                <span style="margin-left: 8px">${renderIcon('<polyline points="9 18 15 12 9 6"/>', 16)}</span>
+                            </button>
                         </div>
                     </div>
-                    
-                    <div class="report-preview">
-                        <div style="text-align:center; border-bottom:2px solid #333; padding-bottom:20px; margin-bottom:30px;">
-                            <h1 style="margin:0;">Kinetische Evaluierung</h1>
-                            <p style="margin:0; color:#666;">Project: Kinetic_Study_V2 | Date: ${now}</p>
-                        </div>
+                </div>
+            `;
+            container.appendChild(wrapper);
+        }
 
-                        <h2>1. Zusammenfassung</h2>
-                        <p>Es wurden 20 Experimente analysiert. Ein Reaktionsmodell <b>1. Ordnung</b> beschreibt die Daten mit hoher Güte (R² > 0.98). Hinweise auf Katalysator-Deaktivierung wurden geprüft, aber verworfen.</p>
-
-                        <h2>2. Modell Parameter</h2>
-                        <table style="width:100%; border-collapse:collapse; margin-top:10px;">
-                            <tr style="background:#eee;"><th style="text-align:left; padding:8px;">Parameter</th><th style="text-align:left; padding:8px;">Wert</th><th style="text-align:left; padding:8px;">Unit</th></tr>
-                            <tr><td style="padding:8px; border-bottom:1px solid #ddd;">Activation Energy (Ea)</td><td style="padding:8px; border-bottom:1px solid #ddd;">45.2 ± 1.2</td><td style="padding:8px; border-bottom:1px solid #ddd;">kJ/mol</td></tr>
-                            <tr><td style="padding:8px; border-bottom:1px solid #ddd;">Pre-exponential (A)</td><td style="padding:8px; border-bottom:1px solid #ddd;">2.4e5</td><td style="padding:8px; border-bottom:1px solid #ddd;">1/s</td></tr>
-                        </table>
-
-                        <h2>3. Audit Trail (Auszug)</h2>
-                        <ul style="font-family:'Courier New', monospace; font-size:0.9rem;">
-                            ${state.auditLog.slice(-3).map(l => `<li>[${l.time}] ${l.type}: ${l.msg}</li>`).join('')}
-                        </ul>
-
-                        <h2>4. Offene Punkte</h2>
-                        <p>Experiment EXP-2024-100 wurde aufgrund von Datenfehlern aus dem Fit ausgeschlossen.</p>
-                    </div>
-                `;
-            }
-        },
-
-        // --- Interaction Handlers ---
-        resolveQuestion(id, decision) {
-            const qIndex = state.questions.findIndex(q => q.id === id);
-            state.questions[qIndex].resolved = true;
-            state.questions[qIndex].answer = decision;
+        // STEP 3: GROUPING
+        function renderGrouping(container) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'fade-in';
             
-            this.addToLog('Decision', `Frage #${id} geklärt. Antwort: "${decision}"`);
-            this.renderView();
-        },
+            const groups = [
+                { name: 'Gruppe A: Standard (25°C)', color: '#3b82f6', items: ['Exp_001', 'Exp_003', 'Exp_005'] },
+                { name: 'Gruppe B: High Temp (40°C)', color: '#f97316', items: ['Exp_002', 'Exp_004'] },
+                { name: 'Ungruppiert', color: '#cbd5e1', items: ['Exp_006 (Error?)'] }
+            ];
 
-        runFit() {
-            // Simulate processing
-            const btn = document.querySelector('.btn-primary');
-            const originalText = btn.innerHTML;
-            btn.innerHTML = 'Rechne...';
-            btn.style.opacity = '0.7';
+            wrapper.innerHTML = `
+                <div class="flex justify-between items-end" style="margin-bottom: 2rem;">
+                    <div>
+                        <h2 style="font-size: 1.5rem; font-weight: 700;">Experimente gruppieren</h2>
+                        <p style="color: var(--text-muted);">KI-Vorschlag basierend auf Metadaten.</p>
+                    </div>
+                    <button class="btn btn-secondary">Neue Gruppe +</button>
+                </div>
+                
+                <div class="grid grid-cols-3">
+                    ${groups.map(g => `
+                        <div class="card group-card" style="border-left-color: ${g.color}">
+                            <div class="card-header" style="padding: 0.75rem 1rem;">
+                                <span style="font-weight: 600; font-size: 0.9rem;">${g.name}</span>
+                                ${renderIcon('<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>', 14)}
+                            </div>
+                            <div class="card-body" style="padding: 1rem; background: #f8fafc; min-height: 150px;">
+                                ${g.items.map(item => `
+                                    <div style="background: white; padding: 0.5rem 0.75rem; border: 1px solid var(--border); border-radius: 0.375rem; margin-bottom: 0.5rem; font-size: 0.85rem; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                                        <span class="flex items-center gap-2">
+                                            <span style="color: #94a3b8">${renderIcon('<path d="M10 2v7.31l-6.29 10.83a2 2 0 0 0 1.73 2.86h13.12a2 2 0 0 0 1.73-2.86L14 9.31V2 M8.5 2h7 M10 16h4"/>', 12)}</span>
+                                            ${item}
+                                        </span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+
+                <div class="flex justify-between" style="margin-top: 2rem;">
+                    <button class="btn btn-ghost" onclick="setStep(1)">Zurück</button>
+                    <button class="btn btn-primary" onclick="setStep(3)">Bestätigen <span style="margin-left: 8px">${renderIcon('<polyline points="9 18 15 12 9 6"/>', 16)}</span></button>
+                </div>
+            `;
+            container.appendChild(wrapper);
+        }
+
+        // STEP 4: MODELING
+        function renderModeling(container) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'fade-in';
+            wrapper.innerHTML = `
+                <div class="grid" style="grid-template-columns: 300px 1fr; gap: 1.5rem; height: 600px;">
+                    <!-- Controls -->
+                    <div class="card h-full flex flex-col">
+                        <div class="card-header">Fit-Parameter</div>
+                        <div class="card-body flex-col" style="flex: 1; display: flex; gap: 1.5rem;">
+                            <div>
+                                <label style="font-weight: 600; font-size: 0.85rem; display: block; margin-bottom: 0.5rem;">Ordnung</label>
+                                <div style="background: #f1f5f9; padding: 4px; border-radius: 6px; display: flex;">
+                                    <button style="flex:1; padding: 6px; border:none; background:white; border-radius:4px; font-weight:600; font-size:0.8rem; box-shadow: 0 1px 2px rgba(0,0,0,0.1);">1. Ord</button>
+                                    <button style="flex:1; padding: 6px; border:none; background:transparent; font-size:0.8rem; color:#64748b;">2. Ord</button>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="flex items-center gap-2" style="font-size: 0.9rem; cursor: pointer; padding: 0.5rem; border: 1px solid var(--border); border-radius: 6px;">
+                                    <input type="checkbox" checked> Arrhenius Korrektur
+                                </label>
+                            </div>
+                            <div style="margin-top: auto; background: #ecfdf5; border: 1px solid #a7f3d0; padding: 1rem; border-radius: 8px;">
+                                <div class="flex justify-between" style="font-size: 0.8rem; font-weight: 700; color: #065f46; margin-bottom: 0.5rem;">
+                                    <span>R² SCORE</span>
+                                    <span>0.985</span>
+                                </div>
+                                <div style="height: 6px; background: #d1fae5; border-radius: 4px; overflow: hidden;">
+                                    <div style="width: 98.5%; background: #10b981; height: 100%;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="padding: 1rem; border-top: 1px solid var(--border);">
+                            <button class="btn btn-primary w-full" onclick="setStep(4)">Berechnen</button>
+                        </div>
+                    </div>
+
+                    <!-- Chart Placeholder -->
+                    <div class="card h-full flex flex-col">
+                        <div class="card-header">
+                            <span>Kinetischer Fit: Gruppe A</span>
+                            <div style="font-size: 0.75rem; display: flex; gap: 1rem;">
+                                <span class="flex items-center gap-2"><span style="width:8px; height:8px; background:#3b82f6; border-radius:50%;"></span> Daten</span>
+                                <span class="flex items-center gap-2"><span style="width:8px; height:8px; background:#1e293b; border-radius:50%;"></span> Modell</span>
+                            </div>
+                        </div>
+                        <div class="card-body" style="flex: 1; background: #f8fafc; position: relative; display: flex; align-items: flex-end; padding-bottom: 3rem; padding-left: 3rem;">
+                            <!-- Simple SVG Chart -->
+                            <div style="width: 100%; height: 100%; position: relative; border-left: 1px solid #cbd5e1; border-bottom: 1px solid #cbd5e1;">
+                                <svg width="100%" height="100%" style="overflow: visible;">
+                                    <path d="M0,300 Q200,100 500,50" fill="none" stroke="#1e293b" stroke-width="2" />
+                                    <circle cx="0" cy="300" r="4" fill="#3b82f6"/>
+                                    <circle cx="100" cy="180" r="4" fill="#3b82f6"/>
+                                    <circle cx="200" cy="120" r="4" fill="#3b82f6"/>
+                                    <circle cx="300" cy="90" r="4" fill="#3b82f6"/>
+                                    <circle cx="400" cy="70" r="4" fill="#3b82f6"/>
+                                </svg>
+                                <div style="position: absolute; bottom: -25px; width: 100%; display: flex; justify-content: space-between; font-size: 0.75rem; color: #94a3b8;">
+                                    <span>0 min</span><span>60 min</span>
+                                </div>
+                                <div style="position: absolute; left: -30px; top: 50%; transform: rotate(-90deg); font-size: 0.75rem; color: #94a3b8;">
+                                    Konzentration [mol/L]
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            container.appendChild(wrapper);
+        }
+
+        // STEP 5: REPORT
+        function renderReporting(container) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'fade-in';
+            
+            wrapper.innerHTML = `
+                <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 2rem;">
+                    <!-- Chat Interface -->
+                    <div style="display: flex; flex-direction: column; gap: 1rem; height: 500px;">
+                        <h3 style="font-weight: 700;">KI-Assistent & Fazit</h3>
+                        <div class="card h-full flex flex-col">
+                            <div class="card-body" id="chat-window" style="flex: 1; background: #f8fafc; overflow-y: auto; display: flex; flex-direction: column; gap: 1rem;">
+                                <!-- Messages go here -->
+                                <div style="text-align: center; color: #94a3b8; margin-top: auto; margin-bottom: auto;" id="chat-placeholder">
+                                    ${renderIcon('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>', 40)}
+                                    <p style="margin-top: 1rem;">Klicken Sie auf "Generieren"</p>
+                                </div>
+                            </div>
+                            <div style="padding: 1rem; border-top: 1px solid var(--border);">
+                                <button class="btn btn-primary w-full" id="gen-btn" onclick="startChat()">Report Generieren</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- PDF Preview -->
+                    <div class="card h-full flex flex-col" style="background: white; border-color: #e2e8f0; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);">
+                        <div style="background: #1e293b; color: white; padding: 0.75rem 1rem; display: flex; justify-content: space-between; font-size: 0.8rem;">
+                            <span>preview_kinetik_report.pdf</span>
+                            <div class="flex gap-2">
+                                <span style="width: 10px; height: 10px; background: #ef4444; border-radius: 50%;"></span>
+                                <span style="width: 10px; height: 10px; background: #f59e0b; border-radius: 50%;"></span>
+                            </div>
+                        </div>
+                        <div class="card-body" style="flex: 1; font-family: 'Times New Roman', serif; color: #333;">
+                            <h1 style="font-size: 1.5rem; margin-bottom: 0.5rem;">Kinetischer Report</h1>
+                            <p style="font-size: 0.8rem; color: #666; margin-bottom: 2rem; font-family: sans-serif;">Erstellt am 24.10.2023 | Projekt Alpha</p>
+                            
+                            <h4 style="font-family: sans-serif; font-size: 0.8rem; font-weight: bold; text-transform: uppercase; color: #1e3a8a; border-bottom: 1px solid #eee; padding-bottom: 4px; margin-bottom: 8px;">1. Zusammenfassung</h4>
+                            <p style="font-size: 0.9rem; line-height: 1.6; margin-bottom: 1.5rem;">
+                                Die Experimente der Gruppe A zeigen eine Reaktion 1. Ordnung. Die Geschwindigkeitskonstante k beträgt im Mittel 0.045 min⁻¹.
+                            </p>
+
+                            <h4 style="font-family: sans-serif; font-size: 0.8rem; font-weight: bold; text-transform: uppercase; color: #1e3a8a; border-bottom: 1px solid #eee; padding-bottom: 4px; margin-bottom: 8px;">2. Parameter</h4>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+                                <div style="background: #f8fafc; padding: 0.5rem; font-family: sans-serif;">
+                                    <div style="font-size: 0.7rem; color: #64748b;">Rate Constant k</div>
+                                    <div style="font-weight: bold;">0.045</div>
+                                </div>
+                                <div style="background: #f8fafc; padding: 0.5rem; font-family: sans-serif;">
+                                    <div style="font-size: 0.7rem; color: #64748b;">Halbwertszeit</div>
+                                    <div style="font-weight: bold;">15.4 min</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="padding: 1rem; background: #f8fafc; border-top: 1px solid var(--border);">
+                            <button class="btn btn-primary w-full">PDF Download</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            container.appendChild(wrapper);
+        }
+
+        function startChat() {
+            const win = document.getElementById('chat-window');
+            const btn = document.getElementById('gen-btn');
+            document.getElementById('chat-placeholder').style.display = 'none';
+            btn.disabled = true;
+
+            const addMsg = (role, text) => {
+                const div = document.createElement('div');
+                div.className = `chat-bubble ${role === 'bot' ? 'chat-bot' : 'chat-user'}`;
+                div.innerHTML = text;
+                win.appendChild(div);
+                win.scrollTop = win.scrollHeight;
+            };
+
+            addMsg('bot', 'Ich analysiere die Ergebnisse...');
+            
+            setTimeout(() => {
+                addMsg('bot', 'Eine Frage zu <b>Exp_004</b>: Bei t=15min gibt es eine Abweichung. War das eine technische Störung?');
+                
+                // Add quick replies
+                const replyDiv = document.createElement('div');
+                replyDiv.className = 'fade-in';
+                replyDiv.style.marginTop = '1rem';
+                replyDiv.innerHTML = `
+                    <button class="btn btn-secondary" style="font-size: 0.8rem; margin-right: 0.5rem;" onclick="replyChat(this, 'Nein, nur Rauschen')">Nein, Rauschen</button>
+                    <button class="btn btn-secondary" style="font-size: 0.8rem;" onclick="replyChat(this, 'Ja, Pumpenausfall')">Ja, Pumpenausfall</button>
+                `;
+                win.appendChild(replyDiv);
+                win.scrollTop = win.scrollHeight;
+            }, 1500);
+        }
+
+        window.replyChat = function(btnElem, text) {
+            const win = document.getElementById('chat-window');
+            btnElem.parentElement.remove(); // remove buttons
+            
+            const div = document.createElement('div');
+            div.className = `chat-bubble chat-user`;
+            div.innerHTML = text;
+            win.appendChild(div);
 
             setTimeout(() => {
-                state.modelResult = true;
-                btn.innerHTML = originalText;
-                btn.style.opacity = '1';
-                this.renderView();
-                this.drawChart('chart-container', true); // Draw with fit line
-                this.addToLog('System', 'Modell Fit "Ordnung 1" durchgeführt. Konvergenz erreicht.');
+                const botDiv = document.createElement('div');
+                botDiv.className = `chat-bubble chat-bot`;
+                botDiv.innerHTML = 'Verstanden. Ich vermerke das im Report und korrigiere den Fit.';
+                win.appendChild(botDiv);
+                win.scrollTop = win.scrollHeight;
             }, 800);
-        },
-
-        checkHypothesis(id) {
-            const h = state.hypotheses.find(x => x.id === id);
-            h.checked = true;
-            this.addToLog('System', `Hypothese "${h.title}" geprüft. Ergebnis negativ.`);
-            this.renderView();
-        },
-
-        filterExperiments(term) {
-            // Basic filtering visual only
-            const items = document.querySelectorAll('.exp-item');
-            term = term.toLowerCase();
-            items.forEach(item => {
-                const text = item.innerText.toLowerCase();
-                item.style.display = text.includes(term) ? 'block' : 'none';
-            });
-        },
-
-        // --- Charting Utility (SVG) ---
-        drawChart(containerId, showFit) {
-            const container = document.getElementById(containerId);
-            if (!container) return;
-
-            // Generate Fake Data
-            const width = container.offsetWidth;
-            const height = container.offsetHeight;
-            const points = [];
-            const fitPoints = [];
-            
-            // Generate noisy exponential decay data
-            for(let x=0; x<=100; x+=2) {
-                const y_ideal = 90 * Math.exp(-0.03 * x);
-                const noise = (Math.random() - 0.5) * 5;
-                const y_real = y_ideal + noise;
-                
-                // Scale to SVG coords (pad 20px)
-                const sx = (x / 100) * (width - 40) + 20;
-                const sy = height - 20 - (y_real / 100) * (height - 40);
-                const sy_fit = height - 20 - (y_ideal / 100) * (height - 40);
-
-                points.push(`${sx},${sy}`);
-                fitPoints.push(`${sx},${sy_fit}`);
-            }
-
-            const pathData = "M " + points.join(" L ");
-            const fitPathData = "M " + fitPoints.join(" L ");
-
-            const svg = `
-                <svg class="chart" viewBox="0 0 ${width} ${height}">
-                    <!-- Axes -->
-                    <line x1="20" y1="${height-20}" x2="${width-10}" y2="${height-20}" class="axis"/>
-                    <line x1="20" y1="${height-20}" x2="20" y2="10" class="axis"/>
-                    <text x="${width/2}" y="${height-5}" class="label" text-anchor="middle">Zeit (t)</text>
-                    <text x="10" y="${height/2}" class="label" transform="rotate(-90 10,${height/2})" text-anchor="middle">Conc</text>
-                    
-                    <!-- Data Line -->
-                    <path d="${pathData}" class="line" />
-                    
-                    <!-- Fit Line (Optional) -->
-                    ${showFit ? `<path d="${fitPathData}" class="line-model" />` : ''}
-                    
-                    <!-- Legend -->
-                    <g transform="translate(${width-100}, 20)">
-                        <rect width="90" height="40" fill="white" stroke="#ccc" rx="4"/>
-                        <line x1="10" y1="15" x2="30" y2="15" stroke="var(--primary)" stroke-width="2"/>
-                        <text x="35" y="18" class="label" style="font-size:9px">Exp Data</text>
-                        ${showFit ? `
-                        <line x1="10" y1="30" x2="30" y2="30" stroke="var(--error)" stroke-width="2" stroke-dasharray="4"/>
-                        <text x="35" y="33" class="label" style="font-size:9px">Model Fit</text>
-                        ` : ''}
-                    </g>
-                </svg>
-            `;
-            container.innerHTML = svg;
         }
-    };
 
-    // Initialize
-    window.onload = () => app.init();
+        // --- INIT ---
+        updateStepper();
+        renderView();
 
-</script>
+    </script>
 </body>
 </html>
-
