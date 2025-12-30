@@ -15,7 +15,7 @@ Das App-Layout folgt dem UI-Design-Draft unter `design/kinetik-researcher.design
 - Card-basierte Screens im mittig ausgerichteten Container
 
 ### Screens aus dem Draft (verbindliche UX-Elemente)
-- **Import**: Drag-and-Drop Upload-Zone; danach Mapping-Card mit Dropdowns und CTA „Weiter zur Validierung“.
+- **Import**: Drag-and-Drop Upload-Zone; danach Mapping-Card mit Dropdowns und CTA „Weiter zur Validierung“. Das UI wurde bereits auf das neue Draft-Layout gehoben (Header-Badge, horizontaler Stepper, Cards).
 - **Validation**: Checkliste mit Badge-Status (Laden/OK), KI-Hinweisbox und CTA-Leiste „Zurück/Abschließen“ unten.
 - **Grouping**: Grid aus farbmarkierten Group-Cards, „Neue Gruppe +“-Button, klarer „Bestätigen“-CTA.
 - **Modeling**: Zweispaltig – links Fit-Parameter inkl. Arrhenius-Checkbox + R²-Summary, rechts Chart-Card mit Legende; Abschluss-CTA „Berechnen“.
