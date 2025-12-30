@@ -21,6 +21,11 @@ Das App-Layout folgt dem UI-Design-Draft unter `design/kinetik-researcher.design
 - **Modeling**: Zweispaltig – links Fit-Parameter inkl. Arrhenius-Checkbox + R²-Summary, rechts Chart-Card mit Legende; Abschluss-CTA „Berechnen“.
 - **Report**: Zweispaltig – links Chat mit Quick-Replies und „Report Generieren“, rechts PDF-Preview mit Titelbar + Download-CTA.
 
+### Aktueller UI-Stand (Schritt 1 umgesetzt)
+- Neuer Sticky-Header mit User-Badge und ein 5-stufiger horizontaler Stepper spiegeln den Draft.
+- Import & Mapping sind als geführte Cards umgesetzt: Drag-&-Drop-Zone, File-Summary mit Sheet-Auswahl, Mapping-Panel mit klaren Dropdowns und Erfolgscallout „Weiter zur Validierung“.
+- Audit-Log-Ausschnitt direkt im Import-Screen, damit Annahmen dokumentiert bleiben.
+
 ## Dev-Setup
 ```bash
 cd app

@@ -25,6 +25,13 @@ export const MappingPreviewTable = ({
 
   return (
     <div className="mapping-preview">
+      <div className="mapping-preview-header">
+        <div>
+          <p className="muted">Vorschau (erste {rows.length} Zeilen)</p>
+          <p className="meta">Markierte Spalten werden in die Struktur übernommen.</p>
+        </div>
+        <span className="pill muted-pill">{table.rows.length} Zeilen gesamt</span>
+      </div>
       <table>
         <thead>
           <tr>

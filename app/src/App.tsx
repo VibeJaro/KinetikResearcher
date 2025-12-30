@@ -46,13 +46,11 @@ type Question = {
 };
 
 const steps = [
-  "Import & Mapping",
-  "Validation",
-  "Grouping",
-  "Questions",
-  "Modeling",
-  "Diagnostics",
-  "Report"
+  { id: "import", label: "Import", description: "Datei laden & Rollen vergeben" },
+  { id: "validation", label: "Validierung", description: "Import prüfen" },
+  { id: "grouping", label: "Gruppierung", description: "Serien bündeln" },
+  { id: "modeling", label: "Modeling", description: "Fit & Parameter" },
+  { id: "report", label: "Report", description: "Ergebnis teilen" }
 ];
 
 const sampleExperiments: SampleExperiment[] = Array.from({ length: 20 }, (_, index) => {
@@ -166,8 +164,7 @@ const findDefaultTimeColumn = (headers: string[]): number | null => {
 };
 
 function App() {
-  const [searchValue, setSearchValue] = useState("");
-  const [activeStep, setActiveStep] = useState(steps[0]);
+  const [activeStepId, setActiveStepId] = useState<string>(steps[0].id);
   const [selectedExperimentIds, setSelectedExperimentIds] = useState<string[]>([]);
   const [questionsByExperiment, setQuestionsByExperiment] = useState(
     initialQuestionsByExperiment
@@ -175,13 +172,6 @@ function App() {
   const [activeQuestionId, setActiveQuestionId] = useState<string | null>("q1");
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [auditEntries, setAuditEntries] = useState(initialAuditEntries);
-  const [filters, setFilters] = useState({
-    clean: true,
-    needsInfo: true,
-    broken: true,
-    fitDone: true
-  });
-  const [isAuditOpen, setIsAuditOpen] = useState(true);
   const [dataset, setDataset] = useState<Dataset | null>(null);
   const [rawTables, setRawTables] = useState<RawTable[]>([]);
   const [activeRawTable, setActiveRawTable] = useState<RawTable | null>(null);
@@ -254,28 +244,6 @@ function App() {
       ),
     [selectedExperimentIds, sidebarExperiments]
   );
-
-  const filteredExperiments = useMemo(() => {
-    const query = searchValue.toLowerCase();
-    return sidebarExperiments.filter((experiment) => {
-      if (query && !experiment.name.toLowerCase().includes(query)) {
-        return false;
-      }
-      if (!filters.clean && experiment.status === "clean") {
-        return false;
-      }
-      if (!filters.needsInfo && experiment.status === "needs-info") {
-        return false;
-      }
-      if (!filters.broken && experiment.status === "broken") {
-        return false;
-      }
-      if (!filters.fitDone && experiment.status === "fit-done") {
-        return false;
-      }
-      return true;
-    });
-  }, [searchValue, filters, sidebarExperiments]);
 
   const selectedStatusSummary = useMemo<ExperimentStatus | null>(() => {
     if (selectedExperiments.length === 0) {
@@ -450,7 +418,7 @@ function App() {
   };
 
   const scrollToExperimentCard = (experimentId: string) => {
-    if (activeStep !== "Validation") {
+    if (activeStepId !== "validation") {
       return;
     }
     window.setTimeout(() => {
@@ -618,7 +586,7 @@ function App() {
   };
 
   const handleBackToMapping = () => {
-    setActiveStep("Import & Mapping");
+    setActiveStepId("import");
     window.setTimeout(() => {
       mappingPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       mappingPanelRef.current?.focus();
@@ -632,11 +600,11 @@ function App() {
     if (selectedExperiments.some((experiment) => experiment.status === "broken")) {
       return;
     }
-    setActiveStep("Grouping");
+    setActiveStepId("grouping");
   };
 
   const handleContinueToValidation = () => {
-    setActiveStep("Validation");
+    setActiveStepId("validation");
   };
 
   const formatAuditPayload = (entry: AuditEntry): string => {
@@ -682,12 +650,25 @@ function App() {
     return "Audit entry recorded.";
   };
 
-  const renderStepContent = () => {
-    if (activeStep === "Import & Mapping") {
-      return (
-        <div className="import-panel">
+  const renderImportStep = () => (
+    <div className="content-stack">
+      <section className="panel upload-panel">
+        <header className="panel-header">
+          <div>
+            <p className="eyebrow">Schritt 1 · Import &amp; Mapping</p>
+            <h2>Daten ziehen, Struktur sichern</h2>
+            <p className="muted">
+              Lade CSV/XLSX, prüfe Kopfzeile und ordne Zeit- und Wertspalten zu. Wir zeigen dir sofort, ob die Struktur stimmig ist.
+            </p>
+          </div>
+          <div className="header-chips">
+            <span className="pill muted-pill">Guided Upload</span>
+            {importFileName && <span className="pill info-pill">Neu: {importFileName}</span>}
+          </div>
+        </header>
+        <div className="upload-grid">
           <div
-            className={`upload-card ${isDragging ? "dragging" : ""}`}
+            className={`upload-zone ${isDragging ? "dragging" : ""}`}
             onDragOver={(event) => {
               event.preventDefault();
               setIsDragging(true);
@@ -702,132 +683,191 @@ function App() {
               }
             }}
           >
-            <h3>Import raw data</h3>
-            <p>Drag &amp; drop a .csv or .xlsx file, or choose one to upload.</p>
-            <label className="primary file-picker">
-              Choose file
-              <input
-                type="file"
-                accept=".csv,.xlsx"
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  if (file) {
-                    void handleFileUpload(file);
-                  }
-                  event.target.value = "";
-                }}
-              />
-            </label>
+            <p className="eyebrow">Datei hier ablegen</p>
+            <h3>CSV oder XLSX hochladen</h3>
+            <p className="muted">
+              Wir empfehlen eine Kopfzeile mit sprechenden Namen (time, value, experiment). Kein Format-Raten nötig.
+            </p>
+            <div className="upload-actions">
+              <label className="primary file-picker">
+                Datei wählen
+                <input
+                  type="file"
+                  accept=".csv,.xlsx"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) {
+                      void handleFileUpload(file);
+                    }
+                    event.target.value = "";
+                  }}
+                />
+              </label>
+              <span className="muted">oder per Drag &amp; Drop hier lassen</span>
+            </div>
+            {importError && <div className="callout error-callout">{importError}</div>}
             {importFileName && (
-              <p className="meta">Latest file: {importFileName}</p>
+              <p className="muted subtle">Zuletzt geladen: {importFileName}</p>
             )}
           </div>
-          {importError && <div className="inline-error">{importError}</div>}
-          {activeRawTable && (
-            <div className="import-summary">
-              <h4>Parsed preview</h4>
-              <div className="summary-grid">
-                <div>
-                  <p className="meta">File type: {importFileType ?? "Unknown"}</p>
-                  <p className="meta">Rows: {activeRawTable.rows.length}</p>
-                  <p className="meta">Columns: {activeRawTable.headers.length}</p>
-                </div>
-                <div>
-                  <p className="meta">
-                    Sheet: {activeRawTable.sheetName ?? "Sheet1"}
-                  </p>
-                  {availableSheets.length > 1 && (
-                    <label className="sheet-select">
-                      Select sheet
-                      <select
-                        value={selectedSheet ?? ""}
-                        onChange={(event) => handleSheetChange(event.target.value)}
-                      >
-                        {availableSheets.map((sheet) => (
-                          <option key={sheet} value={sheet}>
-                            {sheet}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  )}
-                </div>
-              </div>
-              <div className="headers-preview">
-                <p className="meta">Headers</p>
-                <div className="chip-row">
-                  {activeRawTable.headers.slice(0, 8).map((header, index) => (
-                    <span key={`${header}-${index}`} className="chip">
-                      {header}
-                    </span>
-                  ))}
-                  {activeRawTable.headers.length > 8 && (
-                    <span className="chip">+{activeRawTable.headers.length - 8}</span>
-                  )}
-                </div>
+          <div className="upload-guidance">
+            <h4>Quick-Checks</h4>
+            <ul>
+              <li>Erste Zeile = Header (kann gleich angepasst werden).</li>
+              <li>Eine Zeitspalte + mindestens eine Wertespalte wählen.</li>
+              <li>Optional: Experiment- und Replikat-Spalte angeben.</li>
+              <li>Nach dem Mapping siehst du sofort eine Vorschau.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      {activeRawTable && (
+        <section className="panel file-summary">
+          <header className="panel-header">
+            <div>
+              <p className="eyebrow">Import-Preview</p>
+              <h3>Rohdaten geprüft</h3>
+              <p className="muted">
+                Wir lesen nur lokale Dateien. Wähle bei Bedarf ein anderes Sheet und prüfe die Header.
+              </p>
+            </div>
+            <div className="stat-block">
+              <p className="stat-label">Erkannte Spalten</p>
+              <p className="stat-value">{activeRawTable.headers.length}</p>
+            </div>
+          </header>
+          <div className="summary-grid">
+            <div>
+              <p className="muted">Dateityp</p>
+              <p className="strong">{importFileType ?? "Unbekannt"}</p>
+            </div>
+            <div>
+              <p className="muted">Zeilen</p>
+              <p className="strong">{activeRawTable.rows.length}</p>
+            </div>
+            <div>
+              <p className="muted">Aktives Sheet</p>
+              <div className="sheet-select-row">
+                <p className="strong">{activeRawTable.sheetName ?? "Sheet1"}</p>
+                {availableSheets.length > 1 && (
+                  <select
+                    value={selectedSheet ?? ""}
+                    onChange={(event) => handleSheetChange(event.target.value)}
+                  >
+                    {availableSheets.map((sheet) => (
+                      <option key={sheet} value={sheet}>
+                        {sheet}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
             </div>
-          )}
-          {activeRawTable && (
-            <div ref={mappingPanelRef} tabIndex={-1} className="mapping-anchor">
-              <MappingPanel
-                table={activeRawTable}
-                fileName={importFileName}
-                selection={mappingSelection}
-                onSelectionChange={handleMappingSelectionChange}
-                onApply={handleApplyMapping}
-                errors={mappingErrors}
-                stats={mappingStats}
-                successStats={mappingSuccess}
-                onContinueToValidation={handleContinueToValidation}
-              />
+          </div>
+          <div className="headers-preview">
+            <p className="muted">Header-Vorschau</p>
+            <div className="chip-row">
+              {activeRawTable.headers.slice(0, 8).map((header, index) => (
+                <span key={`${header}-${index}`} className="chip">
+                  {header}
+                </span>
+              ))}
+              {activeRawTable.headers.length > 8 && (
+                <span className="chip">+{activeRawTable.headers.length - 8}</span>
+              )}
             </div>
-          )}
+          </div>
+        </section>
+      )}
+
+      {activeRawTable && (
+        <div ref={mappingPanelRef} tabIndex={-1} className="mapping-anchor">
+          <MappingPanel
+            table={activeRawTable}
+            fileName={importFileName}
+            selection={mappingSelection}
+            onSelectionChange={handleMappingSelectionChange}
+            onApply={handleApplyMapping}
+            errors={mappingErrors}
+            stats={mappingStats}
+            successStats={mappingSuccess}
+            onContinueToValidation={handleContinueToValidation}
+          />
+        </div>
+      )}
+
+      <section className="panel audit-panel">
+        <header className="panel-header">
+          <div>
+            <p className="eyebrow">Audit-Log</p>
+            <h3>Nachvollziehbarkeit</h3>
+            <p className="muted">Die letzten Schritte aus Import &amp; Mapping.</p>
+          </div>
+        </header>
+        <div className="audit-list compact">
+          {auditEntries.slice(0, 4).map((entry) => (
+            <article key={entry.id} className="audit-card">
+              <div className="audit-meta">
+                <span>{formatTimestamp(entry.ts)}</span>
+                <span className="tag">{entry.type}</span>
+              </div>
+              <p className="strong">{formatAuditPayload(entry)}</p>
+            </article>
+          ))}
+          {auditEntries.length === 0 && <p className="muted">Noch keine Einträge vorhanden.</p>}
+        </div>
+      </section>
+    </div>
+  );
+
+  const renderStepContent = () => {
+    if (activeStepId === "import") {
+      return renderImportStep();
+    }
+
+    if (activeStepId === "validation") {
+      return (
+        <div className="page-card">
+          <ValidationScreen
+            dataset={dataset}
+            report={importReport}
+            onBackToMapping={handleBackToMapping}
+            onContinue={handleContinueFromValidation}
+            disableContinue={
+              Boolean(importReport?.status === "broken") ||
+              selectedExperiments.some((experiment) => experiment.status === "broken")
+            }
+          />
         </div>
       );
     }
 
-    if (activeStep === "Validation") {
+    if (activeStepId === "grouping") {
       return (
-        <ValidationScreen
-          dataset={dataset}
-          report={importReport}
-          onBackToMapping={handleBackToMapping}
-          onContinue={handleContinueFromValidation}
-          disableContinue={
-            Boolean(importReport?.status === "broken") ||
-            selectedExperiments.some((experiment) => experiment.status === "broken")
-          }
-        />
-      );
-    }
-
-    if (activeStep === "Grouping") {
-      return (
-        <GroupingScreen
-          experiments={importedExperiments}
-          columnScanPayload={columnScanPayload}
-        />
+        <div className="page-card">
+          <GroupingScreen experiments={importedExperiments} columnScanPayload={columnScanPayload} />
+        </div>
       );
     }
 
     if (selectedExperimentIds.length === 0) {
       return (
-        <div className="empty-state">
+        <div className="page-card empty-state">
           <h3>No experiment selected</h3>
-          <p>Select up to three experiments from the sidebar to begin.</p>
+          <p>Selektiere ein Experiment, um den Schritt zu sehen.</p>
         </div>
       );
     }
 
     if (selectedExperimentIds.length > 1) {
       return (
-        <div className="comparison-grid">
+        <div className="page-card comparison-grid">
           {selectedStatusSummary && (
             <div className="comparison-header">
               <div>
-                <h3>Selected experiments</h3>
-                <p className="meta">Compare progress across the active selection.</p>
+                <h3>Auswahl im Überblick</h3>
+                <p className="meta">Vergleich für den Schritt {steps.find((step) => step.id === activeStepId)?.label ?? ""}.</p>
               </div>
               <span className={`status-pill ${statusTone[selectedStatusSummary]}`}>
                 {statusLabel[selectedStatusSummary]}
@@ -839,10 +879,9 @@ function App() {
               <h3>{experiment.name}</h3>
               <p className="meta">{experiment.subtitle}</p>
               <div className="step-card">
-                <h4>{activeStep}</h4>
+                <h4>{steps.find((step) => step.id === activeStepId)?.label}</h4>
                 <p>
-                  Placeholder summary for {activeStep.toLowerCase()} across selected
-                  experiments.
+                  Placeholder summary für den aktuellen Schritt. Inhalte folgen, sobald der neue Flow für diesen Schritt steht.
                 </p>
                 <ul>
                   <li>Dataset quality: stable</li>
@@ -860,62 +899,30 @@ function App() {
       return null;
     }
 
-    if (activeStep === "Questions") {
+    if (activeStepId === "modeling") {
       return (
-        <div className="questions-view">
-          <section className="questions-list">
-            <h3>Open questions</h3>
-            <ul>
-              {questionsForActive.map((question) => (
-                <li key={question.id} className={question.resolved ? "resolved" : ""}>
-                  <button
-                    type="button"
-                    onClick={() => setActiveQuestionId(question.id)}
-                    disabled={question.resolved}
-                  >
-                    {question.prompt}
-                  </button>
-                  {question.resolved && <span className="tag">Resolved</span>}
-                </li>
-              ))}
-            </ul>
-          </section>
-          <section className="questions-detail">
-            <h3>Active question</h3>
-            {activeQuestion ? (
-              <div className="question-card">
-                <p className="question-prompt">{activeQuestion.prompt}</p>
-                <div className="answer-grid">
-                  {activeQuestion.options.map((option) => (
-                    <button
-                      key={option}
-                      type="button"
-                      className={option === selectedAnswer ? "active" : ""}
-                      onClick={() => setSelectedAnswer(option)}
-                    >
-                      {option}
-                    </button>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  className="primary"
-                  onClick={handleAnswerApply}
-                  disabled={!selectedAnswer}
-                >
-                  Apply decision
-                </button>
-              </div>
-            ) : (
-              <p className="empty-state">All questions resolved for this experiment.</p>
-            )}
-          </section>
+        <div className="page-card workspace-detail">
+          <div className="detail-header">
+            <div>
+              <h2>{activeExperiment.name}</h2>
+              <p className="meta">{activeExperiment.subtitle}</p>
+            </div>
+            <span className={`status-pill ${statusTone[activeExperiment.status]}`}>
+              {statusLabel[activeExperiment.status]}
+            </span>
+          </div>
+          <div className="detail-card">
+            <h3>Modeling (Preview)</h3>
+            <p>
+              Der neue Modeling-Screen folgt dem Draft (Parameter links, Plot rechts). Bis dahin dient dieses Paneel als Platzhalter.
+            </p>
+          </div>
         </div>
       );
     }
 
     return (
-      <div className="workspace-detail">
+      <div className="page-card workspace-detail">
         <div className="detail-header">
           <div>
             <h2>{activeExperiment.name}</h2>
@@ -926,10 +933,9 @@ function App() {
           </span>
         </div>
         <div className="detail-card">
-          <h3>{activeStep}</h3>
+          <h3>{steps.find((step) => step.id === activeStepId)?.label}</h3>
           <p>
-            Dummy content for {activeStep.toLowerCase()} to mirror the draft layout. Use
-            this panel for step-specific summaries, previews, or placeholders.
+            Dummy content für den kommenden Screen. Wir übernehmen den neuen Draft sukzessive für die weiteren Schritte.
           </p>
           <div className="detail-grid">
             <div>
@@ -954,150 +960,66 @@ function App() {
     );
   };
 
+  const activeStepIndex = Math.max(steps.findIndex((step) => step.id === activeStepId), 0);
+  const stepProgress =
+    steps.length > 1 ? Math.max(0, (activeStepIndex / (steps.length - 1)) * 100) : 0;
+
   return (
     <div className="app-shell">
-      <header className="app-header">
-        <div>
-          <h1>Kinetik Researcher</h1>
-          <p className="header-meta">Project: Heme Kinetics · Dataset: Batch 7</p>
-        </div>
-        <div className="header-status">
-          <span className="status-pill status-info">Draft sync</span>
-          <button type="button" className="ghost">
-            Export
-          </button>
-          <button type="button" className="primary">Report</button>
+      <header className="top-header">
+        <div className="header-container">
+          <div className="brand">
+            <div className="logo-box" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M10 2v7.31l-6.29 10.83a2 2 0 0 0 1.73 2.86h13.12a2 2 0 0 0 1.73-2.86L14 9.31V2" />
+                <path d="M8.5 2h7" />
+                <path d="M10 16h4" />
+              </svg>
+            </div>
+            <div>
+              <p className="eyebrow">Kinetik Researcher</p>
+              <h1>Geführter Datensatz-Import</h1>
+              <p className="muted">Projekt: Demo Batch · Status: lokal</p>
+            </div>
+          </div>
+          <div className="user-chip">
+            <div className="user-meta">
+              <p className="strong">Dr. J. Doe</p>
+              <p className="muted">Process Engineering</p>
+            </div>
+            <div className="avatar">JD</div>
+          </div>
         </div>
       </header>
-      <div className="app-body">
-        <aside className="sidebar left">
-          <div className="sidebar-section">
-            <label className="field-label" htmlFor="search">
-              Search
-            </label>
-            <input
-              id="search"
-              type="search"
-              placeholder="Search experiments"
-              value={searchValue}
-              onChange={(event) => setSearchValue(event.target.value)}
-            />
-          </div>
-          <div className="sidebar-section">
-            <p className="section-title">Filters</p>
-            <label className="toggle">
-              <input
-                type="checkbox"
-                checked={filters.clean}
-                onChange={(event) =>
-                  setFilters((prev) => ({ ...prev, clean: event.target.checked }))
-                }
-              />
-              Clean
-            </label>
-            <label className="toggle">
-              <input
-                type="checkbox"
-                checked={filters.needsInfo}
-                onChange={(event) =>
-                  setFilters((prev) => ({ ...prev, needsInfo: event.target.checked }))
-                }
-              />
-              Needs info
-            </label>
-            <label className="toggle">
-              <input
-                type="checkbox"
-                checked={filters.broken}
-                onChange={(event) =>
-                  setFilters((prev) => ({ ...prev, broken: event.target.checked }))
-                }
-              />
-              Broken
-            </label>
-            <label className="toggle">
-              <input
-                type="checkbox"
-                checked={filters.fitDone}
-                onChange={(event) =>
-                  setFilters((prev) => ({ ...prev, fitDone: event.target.checked }))
-                }
-              />
-              Fit done
-            </label>
-          </div>
-          <div className="sidebar-section">
-            <div className="section-header">
-              <p className="section-title">
-                {importedExperiments.length > 0 ? "Imported experiments" : "Sample experiments"}
-              </p>
-              <span className="badge">Selected {selectedExperimentIds.length}/3</span>
-            </div>
-            <ul className="experiment-list">
-              {filteredExperiments.map((experiment) => {
-                const isSelected = selectedExperimentIds.includes(experiment.experimentId);
-                return (
-                  <li key={experiment.experimentId}>
-                    <button
-                      type="button"
-                      className={isSelected ? "selected" : ""}
-                      onClick={() => handleExperimentToggle(experiment.experimentId)}
-                    >
-                      <div>
-                        <h4>{experiment.name}</h4>
-                        <p className="meta">{experiment.subtitle}</p>
-                      </div>
-                      <span className={`status-dot ${statusTone[experiment.status]}`}>
-                        {statusLabel[experiment.status]}
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-            <p className="hint">
-              Tip: select up to three experiments to compare.
-            </p>
-          </div>
-        </aside>
-        <main className="workspace">
-          <nav className="stepper">
-            {steps.map((step) => (
+
+      <section className="stepper-container">
+        <div className="stepper-track">
+          <div className="stepper-progress" style={{ width: `${stepProgress}%` }} />
+        </div>
+        <div className="stepper-markers">
+          {steps.map((step, index) => {
+            const isActive = step.id === activeStepId;
+            const isCompleted = index < activeStepIndex;
+            return (
               <button
-                key={step}
+                key={step.id}
                 type="button"
-                className={step === activeStep ? "active" : ""}
-                onClick={() => setActiveStep(step)}
+                className={`stepper-item ${isActive ? "active" : ""} ${isCompleted ? "completed" : ""}`}
+                onClick={() => setActiveStepId(step.id)}
+                aria-current={isActive ? "step" : undefined}
               >
-                {step}
+                <span className="step-circle">{isCompleted ? "✓" : index + 1}</span>
+                <div className="step-labels">
+                  <span className="label">{step.label}</span>
+                  <span className="muted small">{step.description}</span>
+                </div>
               </button>
-            ))}
-          </nav>
-          <section className="workspace-panel">{renderStepContent()}</section>
-        </main>
-        <aside className={`sidebar right ${isAuditOpen ? "open" : "collapsed"}`}>
-          <div className="sidebar-header">
-            <h3>Audit log</h3>
-            <button type="button" onClick={() => setIsAuditOpen((prev) => !prev)}>
-              {isAuditOpen ? "Hide" : "Show"}
-            </button>
-          </div>
-          {isAuditOpen && (
-            <div className="audit-list">
-              {auditEntries.map((entry) => (
-                <article key={entry.id}>
-                  <div className="audit-meta">
-                    <span>{formatTimestamp(entry.ts)}</span>
-                    <span className="tag">{entry.type}</span>
-                  </div>
-                  <h4>{entry.type}</h4>
-                  <p>{formatAuditPayload(entry)}</p>
-                </article>
-              ))}
-            </div>
-          )}
-        </aside>
-      </div>
+            );
+          })}
+        </div>
+      </section>
+
+      <main className="main-container">{renderStepContent()}</main>
     </div>
   );
 }
