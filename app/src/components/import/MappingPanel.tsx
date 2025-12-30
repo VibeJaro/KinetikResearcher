@@ -34,11 +34,36 @@ export const MappingPanel = ({
   const headers = normalizedTable.headers;
 
   const highlightedColumns = Array.from(
-    new Set([
-      selection.timeColumnIndex ?? -1,
-      ...selection.valueColumnIndices
-    ])
+    new Set([selection.timeColumnIndex ?? -1, selection.experimentColumnIndex ?? -1, ...selection.valueColumnIndices])
   ).filter((index) => index >= 0);
+
+  const normalizeLabel = (value: string | number | null): string => {
+    if (value === null) return "";
+    if (typeof value === "number") return Number.isNaN(value) ? "" : value.toString();
+    return value.trim();
+  };
+
+  const maxPreviewItems = 20;
+  const previewRows =
+    selection.experimentColumnIndex === null
+      ? normalizedTable.rows.slice(0, maxPreviewItems)
+      : normalizedTable.rows.reduce<(string | number | null)[][]>((acc, row) => {
+          const experimentIndex = selection.experimentColumnIndex ?? 0;
+          const label = normalizeLabel(row[experimentIndex] ?? null) || "Unlabeled experiment";
+          if (acc.length >= maxPreviewItems) return acc;
+          const alreadyIncluded = acc.some(
+            (existing) => normalizeLabel(existing[experimentIndex] ?? null) === label
+          );
+          if (!alreadyIncluded) {
+            acc.push(row);
+          }
+          return acc;
+        }, []);
+
+  const previewDescription =
+    selection.experimentColumnIndex === null
+      ? "Vorschau der ersten 20 Zeilen"
+      : "Vorschau der ersten 20 Experimente (erste Zeile)";
 
   const isApplyDisabled =
     selection.timeColumnIndex === null || selection.valueColumnIndices.length === 0;
@@ -47,10 +72,11 @@ export const MappingPanel = ({
     <div className="mapping-panel">
       <div className="mapping-header">
         <div>
+          <p className="eyebrow">Spalten zuweisen</p>
           <h4>Mapping</h4>
           <p className="meta">
-            Configure how columns map into experiments and series for{" "}
-            {fileName ?? "the current file"}.
+            Ordne Zeit, Werte und Experimente zu. Spalten mit neuer Auswahl direkt in der Vorschau
+            prüfen.
           </p>
         </div>
         <label className="toggle">
@@ -64,13 +90,13 @@ export const MappingPanel = ({
               })
             }
           />
-          First row is header
+          Erste Zeile ist Header
         </label>
       </div>
 
       <div className="mapping-grid">
         <label className="field">
-          Time column (required)
+          Zeit-Spalte (Pflicht)
           <select
             value={selection.timeColumnIndex ?? ""}
             onChange={(event) => {
@@ -85,7 +111,7 @@ export const MappingPanel = ({
               });
             }}
           >
-            <option value="">Select time column</option>
+            <option value="">Zeit-Spalte wählen</option>
             {headers.map((header, index) => (
               <option key={`${header}-${index}`} value={index}>
                 {header}
@@ -95,29 +121,30 @@ export const MappingPanel = ({
         </label>
 
         <div className="field">
-          <span>Value columns (select at least one)</span>
-          <div className="mapping-value-grid">
+          <span>Werte-Spalten (Mehrfachauswahl)</span>
+          <select
+            multiple
+            className="multi-select"
+            value={selection.valueColumnIndices.map(String)}
+            onChange={(event) => {
+              const selectedValues = Array.from(event.target.selectedOptions).map((option) =>
+                Number(option.value)
+              );
+              const filtered = selectedValues.filter((value) => value !== selection.timeColumnIndex);
+              onSelectionChange({ ...selection, valueColumnIndices: filtered });
+            }}
+          >
             {headers.map((header, index) => (
-              <label key={`${header}-${index}`} className="checkbox">
-                <input
-                  type="checkbox"
-                  checked={selection.valueColumnIndices.includes(index)}
-                  disabled={selection.timeColumnIndex === index}
-                  onChange={(event) => {
-                    const nextValues = event.target.checked
-                      ? [...selection.valueColumnIndices, index]
-                      : selection.valueColumnIndices.filter((value) => value !== index);
-                    onSelectionChange({ ...selection, valueColumnIndices: nextValues });
-                  }}
-                />
+              <option key={`${header}-${index}`} value={index} disabled={selection.timeColumnIndex === index}>
                 {header}
-              </label>
+              </option>
             ))}
-          </div>
+          </select>
+            <p className="meta">Tipp: Du kannst mehrere Werte-Spalten auswählen, die Reihenfolge bleibt erhalten.</p>
         </div>
 
         <label className="field">
-          Experiment column (optional)
+          Experiment-Spalte (optional)
           <select
             value={selection.experimentColumnIndex ?? ""}
             onChange={(event) =>
@@ -128,28 +155,7 @@ export const MappingPanel = ({
               })
             }
           >
-            <option value="">None</option>
-            {headers.map((header, index) => (
-              <option key={`${header}-${index}`} value={index}>
-                {header}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="field">
-          Replicate column (optional)
-          <select
-            value={selection.replicateColumnIndex ?? ""}
-            onChange={(event) =>
-              onSelectionChange({
-                ...selection,
-                replicateColumnIndex:
-                  event.target.value === "" ? null : Number(event.target.value)
-              })
-            }
-          >
-            <option value="">None</option>
+            <option value="">Keine</option>
             {headers.map((header, index) => (
               <option key={`${header}-${index}`} value={index}>
                 {header}
@@ -159,17 +165,35 @@ export const MappingPanel = ({
         </label>
       </div>
 
-      <MappingPreviewTable table={normalizedTable} highlightedColumns={highlightedColumns} />
+      <div className="mapping-preview-card">
+        <div className="mapping-preview-header">
+          <div>
+            <p className="eyebrow">Vorschau</p>
+            <p className="meta">{previewDescription}</p>
+          </div>
+          {selection.experimentColumnIndex !== null && (
+            <span className="pill soft">
+              Gruppiert nach {headers[selection.experimentColumnIndex] ?? "Experiment"}
+            </span>
+          )}
+        </div>
+        <MappingPreviewTable
+          table={normalizedTable}
+          highlightedColumns={highlightedColumns}
+          rowsOverride={previewRows}
+          maxRows={maxPreviewItems}
+        />
+      </div>
 
       {successStats && (
         <div className="inline-success">
-          <p className="success-title">Mapping applied successfully.</p>
+          <p className="success-title">Mapping übernommen.</p>
           <p className="meta">
-            {successStats.experimentCount} experiments and {successStats.seriesCount} time
-            series were created.
+            {successStats.experimentCount} Experimente und {successStats.seriesCount} Zeitreihen
+            wurden erzeugt.
           </p>
-          <button type="button" className="primary" onClick={onContinueToValidation}>
-            Continue to Validation
+          <button type="button" className="btn btn-primary" onClick={onContinueToValidation}>
+            Weiter zur Validierung
           </button>
         </div>
       )}
@@ -202,11 +226,11 @@ export const MappingPanel = ({
         )}
         <button
           type="button"
-          className="primary"
+          className="btn btn-primary"
           onClick={onApply}
           disabled={isApplyDisabled}
         >
-          Apply mapping
+          Mapping übernehmen
         </button>
       </div>
     </div>

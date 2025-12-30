@@ -4,6 +4,7 @@ type MappingPreviewTableProps = {
   table: RawTable;
   highlightedColumns: number[];
   maxRows?: number;
+  rowsOverride?: (string | number | null)[][];
 };
 
 const formatCell = (cell: string | number | null): string => {
@@ -19,9 +20,10 @@ const formatCell = (cell: string | number | null): string => {
 export const MappingPreviewTable = ({
   table,
   highlightedColumns,
-  maxRows = 20
+  maxRows = 20,
+  rowsOverride
 }: MappingPreviewTableProps) => {
-  const rows = table.rows.slice(0, maxRows);
+  const rows = (rowsOverride ?? table.rows).slice(0, maxRows);
 
   return (
     <div className="mapping-preview">

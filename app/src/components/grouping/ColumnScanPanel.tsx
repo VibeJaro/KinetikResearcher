@@ -51,7 +51,6 @@ export const ColumnScanPanel = ({ payload }: ColumnScanPanelProps) => {
     const chips: string[] = [];
     if (structuralSummary.time) chips.push(`Time: ${structuralSummary.time}`);
     if (structuralSummary.experiment) chips.push(`Experiment: ${structuralSummary.experiment}`);
-    if (structuralSummary.replicate) chips.push(`Replicate: ${structuralSummary.replicate}`);
     if (structuralSummary.values.length > 0) {
       chips.push(`Values: ${structuralSummary.values.join(", ")}`);
     }
@@ -163,7 +162,7 @@ export const ColumnScanPanel = ({ payload }: ColumnScanPanelProps) => {
           </label>
           <button
             type="button"
-            className="primary"
+            className="btn btn-primary"
             onClick={() => void handleRunScan()}
             disabled={!payload || payload.columns.length === 0 || loading}
           >

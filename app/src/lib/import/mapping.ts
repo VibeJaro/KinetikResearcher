@@ -7,7 +7,6 @@ export type MappingSelection = {
   timeColumnIndex: number | null;
   valueColumnIndices: number[];
   experimentColumnIndex: number | null;
-  replicateColumnIndex: number | null;
 };
 
 export type MappingError = {
@@ -26,7 +25,6 @@ export type MappingResolvedColumns = {
   time: string;
   values: string[];
   experiment: string | null;
-  replicate: string | null;
 };
 
 export type MappingApplyResult = {
@@ -139,7 +137,6 @@ export const applyMappingToDataset = ({
 
   const timeIndex = selection.timeColumnIndex ?? -1;
   const experimentIndex = selection.experimentColumnIndex ?? -1;
-  const replicateIndex = selection.replicateColumnIndex ?? -1;
 
   const experimentName =
     selection.experimentColumnIndex === null
@@ -215,9 +212,7 @@ export const applyMappingToDataset = ({
         y,
         meta: {
           droppedPoints,
-          timeType,
-          replicateColumn:
-            replicateIndex === -1 ? null : headers[replicateIndex] ?? null
+          timeType
         }
       };
     });
@@ -234,7 +229,6 @@ export const applyMappingToDataset = ({
           timeHeader: headers[timeIndex] ?? null,
           valueHeaders: valueHeaders.join(", "),
           experimentHeader: experimentIndex === -1 ? null : headers[experimentIndex] ?? null,
-          replicateHeader: replicateIndex === -1 ? null : headers[replicateIndex] ?? null,
           sheetName: normalizedTable.sheetName ?? null
         }
       })
@@ -252,8 +246,7 @@ export const applyMappingToDataset = ({
     values: selection.valueColumnIndices.map(
       (index) => headers[index] ?? `Column ${index + 1}`
     ),
-    experiment: experimentIndex === -1 ? null : headers[experimentIndex] ?? null,
-    replicate: replicateIndex === -1 ? null : headers[replicateIndex] ?? null
+    experiment: experimentIndex === -1 ? null : headers[experimentIndex] ?? null
   };
 
   return {

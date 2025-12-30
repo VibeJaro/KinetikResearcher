@@ -68,8 +68,7 @@ function App() {
     firstRowIsHeader: true,
     timeColumnIndex: null,
     valueColumnIndices: [],
-    experimentColumnIndex: null,
-    replicateColumnIndex: null
+    experimentColumnIndex: null
   });
   const [mappingErrors, setMappingErrors] = useState<MappingError[]>([]);
   const [mappingStats, setMappingStats] = useState<MappingStats | null>(null);
@@ -113,15 +112,13 @@ function App() {
     const structuralSummary = {
       time: getHeader(mappingSelection.timeColumnIndex),
       values: valueHeaders,
-      experiment: getHeader(mappingSelection.experimentColumnIndex),
-      replicate: getHeader(mappingSelection.replicateColumnIndex)
+      experiment: getHeader(mappingSelection.experimentColumnIndex)
     };
     const knownStructuralColumns = Array.from(
       new Set(
         [
           structuralSummary.time,
           structuralSummary.experiment,
-          structuralSummary.replicate,
           ...structuralSummary.values
         ].filter(
           (value): value is string => typeof value === "string" && value.trim().length > 0
@@ -145,8 +142,7 @@ function App() {
       firstRowIsHeader: true,
       timeColumnIndex: findDefaultTimeColumn(activeRawTable.headers),
       valueColumnIndices: [],
-      experimentColumnIndex: null,
-      replicateColumnIndex: null
+      experimentColumnIndex: null
     });
     setMappingErrors([]);
     setMappingStats(null);
@@ -182,7 +178,6 @@ function App() {
       current.firstRowIsHeader === last.firstRowIsHeader &&
       current.timeColumnIndex === last.timeColumnIndex &&
       current.experimentColumnIndex === last.experimentColumnIndex &&
-      current.replicateColumnIndex === last.replicateColumnIndex &&
       current.valueColumnIndices.length === last.valueColumnIndices.length &&
       current.valueColumnIndices.every((value, index) => value === last.valueColumnIndices[index])
     );
@@ -266,8 +261,7 @@ function App() {
       firstRowIsHeader: true,
       timeColumnIndex: null,
       valueColumnIndices: [],
-      experimentColumnIndex: null,
-      replicateColumnIndex: null
+      experimentColumnIndex: null
     });
     setMappingErrors([]);
     setMappingStats(null);
@@ -317,7 +311,6 @@ function App() {
       timeColumn: result.resolvedColumns.time,
       valueColumns: result.resolvedColumns.values,
       experimentColumn: result.resolvedColumns.experiment,
-      replicateColumn: result.resolvedColumns.replicate,
       experimentCount: result.stats.experimentCount,
       seriesCount: result.stats.seriesCount,
       pointCount: result.stats.pointCount
@@ -397,7 +390,9 @@ function App() {
             </svg>
           </div>
           <h3>Datei ablegen oder auswählen</h3>
-          <p className="muted">CSV oder Excel (.xlsx), max. 50MB. Wir lesen nur lokal.</p>
+          <p className="muted">
+            CSV oder Excel (.xlsx), max. 50MB. Verarbeitung erfolgt lokal auf deinem Gerät.
+          </p>
           <div className="upload-actions">
             <label className="btn btn-primary file-picker">
               Datei wählen
@@ -413,7 +408,7 @@ function App() {
                 }}
               />
             </label>
-            <span className="muted">Hinweis: Keine Daten werden hochgeladen.</span>
+            <span className="upload-warning">Achtung, keine vertraulichen Daten hochladen!</span>
           </div>
           {importError && (
             <div className="inline-error" role="alert">
@@ -533,21 +528,23 @@ function App() {
   return (
     <div className="app-shell">
       <header className="app-header">
-        <div className="brand">
-          <div className="brand-mark" aria-hidden>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M10 2v7.31l-6.29 10.83a2 2 0 0 0 1.73 2.86h13.12a2 2 0 0 0 1.73-2.86L14 9.31V2" />
-              <path d="M8.5 2h7" />
-              <path d="M10 16h4" />
-            </svg>
+        <div className="app-header-inner">
+          <div className="brand">
+            <div className="brand-mark" aria-hidden>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M10 2v7.31l-6.29 10.83a2 2 0 0 0 1.73 2.86h13.12a2 2 0 0 0 1.73-2.86L14 9.31V2" />
+                <path d="M8.5 2h7" />
+                <path d="M10 16h4" />
+              </svg>
+            </div>
+            <div className="brand-text">
+              <p className="eyebrow">Kinetik Researcher</p>
+              <h1>Projekt „Researcher Draft“</h1>
+            </div>
           </div>
-          <div>
-            <p className="eyebrow">Kinetik Researcher</p>
-            <h1>Projekt „Researcher Draft“</h1>
+          <div className="user-pill" aria-label="Nutzer:in">
+            JD
           </div>
-        </div>
-        <div className="user-pill" aria-label="Nutzer:in">
-          JD
         </div>
       </header>
 
