@@ -186,12 +186,12 @@ export const ImportValidationReport = ({
         )}
       </div>
       <div className="validation-actions">
-        <button type="button" className="ghost" onClick={onBackToMapping}>
+        <button type="button" className="btn btn-ghost" onClick={onBackToMapping}>
           Back to mapping
         </button>
         <button
           type="button"
-          className="primary"
+          className="btn btn-primary"
           onClick={onContinue}
           disabled={disableContinue}
         >

@@ -144,3 +144,10 @@ Zulässige Agent-Calls (Beispiele):
 - Keine Transformation ohne Audit-Eintrag.
 - Keine Einheit ohne Parser + explizite Darstellung.
 - Keine “magischen” LLM-Behauptungen ohne Evidenz/Flags.
+
+---
+
+## Screenshots & PR-Assets
+- Bei sichtbaren UI-Änderungen immer einen Screenshot im PR-Text verlinken.
+- Vorgehen: `cd app && npm run dev -- --host --port 4173` starten, dann mit `browser_tools.run_playwright_script` via `ports_to_forward:[4173]` auf `http://127.0.0.1:4173` zugreifen.
+- Für Upload-Demos eignet sich ein inline CSV-Buffer in `set_input_files` (kein temporäres File nötig). Speichere Bilder unter `artifacts/<name>.png`.

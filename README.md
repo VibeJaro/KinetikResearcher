@@ -21,6 +21,13 @@ Das App-Layout folgt dem UI-Design-Draft unter `design/kinetik-researcher.design
 - **Modeling**: Zweispaltig – links Fit-Parameter inkl. Arrhenius-Checkbox + R²-Summary, rechts Chart-Card mit Legende; Abschluss-CTA „Berechnen“.
 - **Report**: Zweispaltig – links Chat mit Quick-Replies und „Report Generieren“, rechts PDF-Preview mit Titelbar + Download-CTA.
 
+## Aktuelle UX-Details (Import & Mapping)
+- Sticky Header, Stepper und Cards sind auf eine gemeinsame, mittige Breite gezogen und alignen mit dem Design-Draft.
+- Upload-Card: Klarer Warnhinweis „Achtung, keine vertraulichen Daten hochladen!“ und deutlicher Hinweis, dass Dateien lokal bleiben.
+- Value-Spalten werden über ein Dropdown mit Mehrfachauswahl zugeordnet; die frühere Replicate-Spalte entfällt.
+- Die Vorschau zeigt entweder die ersten 20 Zeilen oder – sobald eine Experimentspalte gesetzt ist – die erste Zeile der ersten 20 Experimente.
+- CTA-Buttons im Mapping-Flow nutzen das neue Button-Styling („Apply mapping“, „Continue to Validation“), passend zu den übrigen Cards.
+
 ## Dev-Setup
 ```bash
 cd app
