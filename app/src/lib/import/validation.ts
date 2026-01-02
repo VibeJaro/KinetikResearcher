@@ -98,10 +98,10 @@ export const checkTimeNotMonotonic = (
     return createSeriesFinding(series, experiment, {
       code: "TIME_NOT_MONOTONIC",
       severity: "error",
-      title: "Time values go backwards",
+      title: "Zeitachse läuft zurück",
       description:
-        "The time column is not strictly increasing at least once. This breaks kinetic analysis and must be fixed.",
-      hint: "Sort or correct the time values so they only increase.",
+        "Die Zeitspalte steigt mindestens einmal nicht streng an. So kann keine sinnvolle Kinetik berechnet werden.",
+      hint: "Sortiere oder korrigiere die Zeitwerte, sodass sie nur steigen.",
       details: {
         timeIssueCount: issueCount
       }
@@ -119,10 +119,10 @@ export const checkTimeDuplicates = (
     return createSeriesFinding(series, experiment, {
       code: "TIME_DUPLICATES",
       severity: "warn",
-      title: "Duplicate time points",
+      title: "Doppelte Zeitpunkte",
       description:
-        "Some time values repeat within the series. This can confuse downstream fitting and rate calculations.",
-      hint: "Remove duplicates or average repeated points before importing.",
+        "Einige Zeitwerte wiederholen sich in der Reihe. Das verwirrt Fits und Ratenberechnungen.",
+      hint: "Entferne Duplikate oder mittlere doppelte Punkte vor dem Import.",
       details: {
         duplicateCount: series.time.length - unique.size
       }
@@ -139,10 +139,10 @@ export const checkTooFewPoints = (
     return createSeriesFinding(series, experiment, {
       code: "TOO_FEW_POINTS",
       severity: "warn",
-      title: "Too few time points",
+      title: "Zu wenige Messpunkte",
       description:
-        "This series has very few measurements. Most kinetic models need more points to fit reliably.",
-      hint: "Consider adding additional time points if possible.",
+        "Diese Reihe hat sehr wenige Messungen. Die meisten Modelle brauchen mehr Punkte für zuverlässige Fits.",
+      hint: "Füge falls möglich weitere Zeitpunkte hinzu, bevor du fitten möchtest.",
       details: {
         pointCount: series.time.length
       }
@@ -160,10 +160,10 @@ export const checkNanOrNonNumeric = (
     return createSeriesFinding(series, experiment, {
       code: "NAN_OR_NONNUMERIC",
       severity: "warn",
-      title: "Invalid data points removed",
+      title: "Ungültige Datenpunkte entfernt",
       description:
-        "Some rows contained text or empty values where numbers were expected. These rows were ignored during import.",
-      hint: "Review the raw file for missing or non-numeric entries.",
+        "Einige Zeilen enthielten Text oder leere Felder, wo Zahlen erwartet wurden. Diese Zeilen wurden ignoriert.",
+      hint: "Prüfe die Quelldatei auf fehlende oder nicht-numerische Einträge.",
       details: {
         droppedPoints
       }
@@ -181,10 +181,10 @@ export const checkNegativeValues = (
     return createSeriesFinding(series, experiment, {
       code: "NEGATIVE_VALUES",
       severity: "info",
-      title: "Negative values detected",
+      title: "Negative Werte erkannt",
       description:
-        "Negative signal values are present. This can be expected after baseline correction, but can also indicate import issues.",
-      hint: "Confirm whether negative values are expected for this assay.",
+        "Es gibt negative Signalwerte. Das kann nach Basiskorrektur in Ordnung sein, aber auch auf Import-Probleme hinweisen.",
+      hint: "Bestätige, ob negative Werte für dieses Assay erwartbar sind.",
       details: {
         negativeCount
       }
@@ -205,10 +205,10 @@ export const checkConstantSignal = (
     return createSeriesFinding(series, experiment, {
       code: "CONSTANT_SIGNAL",
       severity: "info",
-      title: "Signal is nearly constant",
+      title: "Signal fast konstant",
       description:
-        "The signal changes very little over time. Fitting will be unreliable without variation.",
-      hint: "Check if this series should be excluded or reprocessed."
+        "Das Signal ändert sich kaum über die Zeit. Ohne Variation sind Fits unzuverlässig.",
+      hint: "Prüfe, ob die Reihe ausgeschlossen oder vorverarbeitet werden sollte."
     });
   }
   return null;
@@ -219,10 +219,10 @@ export const checkNoExperiments = (dataset: Dataset): ValidationFinding | null =
     return createDatasetFinding({
       code: "NO_EXPERIMENTS",
       severity: "error",
-      title: "No experiments created",
+      title: "Keine Experimente erstellt",
       description:
-        "Mapping did not produce any experiments. Check that the time and value columns contain data.",
-      hint: "Verify the selected columns and ensure the file has data rows."
+        "Das Mapping hat keine Experimente ergeben. Prüfe, ob Zeit- und Wert-Spalten Daten enthalten.",
+      hint: "Kontrolliere die ausgewählten Spalten und ob die Datei Datenzeilen hat."
     });
   }
   return null;
