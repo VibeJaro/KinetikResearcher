@@ -5,6 +5,7 @@ Ein geführter Kinetik-Assistent für Chemiker:innen und Ingenieur:innen, die sc
 ## Was die App bietet
 - **Klarer 5-Schritte-Flow**: Import & Mapping → Validation → Grouping (LLM-unterstützt) → Modeling/Fit → Report/Export (LLM-unterstützt).
 - **Geführte UX**: verständliche Texte, empfohlene Defaults, “Warum?”-Tooltips und Undo-freundliche Aktionen.
+- **Validierung auf Deutsch**: Serien-Kacheln mit Mini-Plots (Punkte + Linie), klare Kurztexte und Handlungsempfehlungen, damit auch nicht-expertische Nutzer:innen schnell entscheiden können.
 - **Auditierbar**: Jede Annahme und Antwort landet im Audit-Log, ohne die vorhandenen Funktionen einzuschränken.
 - **Deterministischer Kern**: Fitting, Einheiten, Plots laufen als Code; LLM nur für Hinweise, Fragen, Textbausteine.
 
@@ -16,7 +17,7 @@ Das App-Layout folgt dem UI-Design-Draft unter `design/kinetik-researcher.design
 
 ### Screens aus dem Draft (verbindliche UX-Elemente)
 - **Import**: Drag-and-Drop Upload-Zone; danach Mapping-Card mit Dropdowns und CTA „Weiter zur Validierung“. Das UI wurde bereits auf das neue Draft-Layout gehoben (Header-Badge, horizontaler Stepper, Cards). Werte-Spalten lassen sich per Mehrfachauswahl im Dropdown setzen, die Replicate-Auswahl ist entfallen, und sobald eine Experiment-Spalte gewählt ist, zeigt die Vorschau direkt die ersten 20 Experimente (jeweils erste Zeile).
-- **Validation**: Checkliste mit Badge-Status (Laden/OK), KI-Hinweisbox und CTA-Leiste „Zurück/Abschließen“ unten.
+- **Validation**: Serien-Kacheln mit Dauer/Point-Count, Mini-Plots (Punkte + Linie) für den Schnellcheck, deutschsprachige Hinweise (Status-Pill + Technische Details) und CTA-Leiste „Zurück/Weiter“ unten.
 - **Grouping**: Grid aus farbmarkierten Group-Cards, „Neue Gruppe +“-Button, klarer „Bestätigen“-CTA.
 - **Modeling**: Zweispaltig – links Fit-Parameter inkl. Arrhenius-Checkbox + R²-Summary, rechts Chart-Card mit Legende; Abschluss-CTA „Berechnen“.
 - **Report**: Zweispaltig – links Chat mit Quick-Replies und „Report Generieren“, rechts PDF-Preview mit Titelbar + Download-CTA.

@@ -1,4 +1,9 @@
 
+## 2026-01-02
+- Validierungstexte durchgehend auf Deutsch gestellt und Status/Schweregrade klar benannt.
+- Serien-Check um Mini-Plots (Punkte + schwarze Linie) ergänzt, um Plausibilität pro Reihe sofort zu sehen.
+- Validierungsabschnitt mit Schritt-für-Schritt-Hinweisen angereichert, damit Nutzer:innen sicher entscheiden können, ob sie weitergehen oder zum Mapping zurückspringen.
+
 ## 2025-12-30
 - Sticky Header und Stepper-Inhalt auf den Card-Container ausgerichtet; Marken-Text vertikal zentriert.
 - Upload-Zone mit klarerem Hinweis: lokale Verarbeitung, kein vertrauliches Material hochladen.

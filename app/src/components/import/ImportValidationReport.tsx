@@ -1,9 +1,9 @@
 import type { ValidationReport } from "../../lib/import/validation";
 
 const statusLabel: Record<ValidationReport["status"], string> = {
-  clean: "Clean",
-  "needs-info": "Needs info",
-  broken: "Broken"
+  clean: "Bereit",
+  "needs-info": "Info nötig",
+  broken: "Blocker"
 };
 
 const statusTone: Record<ValidationReport["status"], string> = {
@@ -16,6 +16,12 @@ const severityTone: Record<string, string> = {
   info: "severity-info",
   warn: "severity-warn",
   error: "severity-error"
+};
+
+const severityLabel: Record<string, string> = {
+  info: "Hinweis",
+  warn: "Warnung",
+  error: "Fehler"
 };
 
 const severityIcon: Record<string, string> = {
@@ -40,8 +46,8 @@ export const ImportValidationReport = ({
   if (!report) {
     return (
       <div className="empty-state">
-        <h3>No validation report yet</h3>
-        <p>Apply a mapping to generate the import validation summary.</p>
+        <h3>Noch kein Validierungsreport</h3>
+        <p>Wende zuerst ein Mapping an, um den Import-Check auszulösen.</p>
       </div>
     );
   }
@@ -50,8 +56,11 @@ export const ImportValidationReport = ({
     <section className="validation-report">
       <header className="validation-header">
         <div>
-          <h3>Validation summary</h3>
-          <p className="meta">Import checks after mapping.</p>
+          <h3>Validierungsübersicht</h3>
+          <p className="meta">
+            Ergebnisse des Import-Checks nach dem Mapping. Lies die Hinweise und triff dann deine
+            Entscheidung.
+          </p>
         </div>
         <span className={`status-pill ${statusTone[report.status]}`}>
           {statusLabel[report.status]}
@@ -59,27 +68,41 @@ export const ImportValidationReport = ({
       </header>
       <div className="validation-stats">
         <div>
-          <p className="meta">Experiments</p>
+          <p className="meta">Experimente</p>
           <strong>{report.counts.experiments}</strong>
         </div>
         <div>
-          <p className="meta">Series</p>
+          <p className="meta">Datenreihen</p>
           <strong>{report.counts.series}</strong>
         </div>
         <div>
-          <p className="meta">Total points</p>
+          <p className="meta">Messpunkte</p>
           <strong>{report.counts.points}</strong>
         </div>
         <div>
-          <p className="meta">Dropped points</p>
+          <p className="meta">Verworfene Punkte</p>
           <strong>{report.counts.droppedPoints}</strong>
         </div>
       </div>
+      <div className="inline-success">
+        <p className="success-title">Kurz-Anleitung</p>
+        <ul className="guidance-list">
+          <li>Wenn der Status „Bereit“ ist: Du kannst ohne Risiko weiter.</li>
+          <li>
+            Bei „Info nötig“: Lies die Hinweise, entscheide, ob du zurück ins Mapping gehst oder mit
+            den bekannten Einschränkungen fortfährst.
+          </li>
+          <li>
+            Bei „Blocker“: Geh zurück, passe das Mapping an oder bereinige die Quelle, bis die
+            Blocker gelöst sind.
+          </li>
+        </ul>
+      </div>
       <div className="validation-findings">
-        <h4>Findings by experiment</h4>
+        <h4>Hinweise pro Experiment</h4>
         {report.datasetFindings.length > 0 && (
           <div className="validation-banner">
-            <h5>Dataset-level issues</h5>
+            <h5>Hinweise auf Datensatz-Ebene</h5>
             <ul>
               {report.datasetFindings.map((finding) => (
                 <li key={finding.code} className="banner-item">
@@ -99,8 +122,8 @@ export const ImportValidationReport = ({
         {report.experimentSummaries.length === 0 ? (
           <p className="meta">
             {report.datasetFindings.length > 0
-              ? "No experiments are available to review yet."
-              : "No issues detected in the imported series."}
+              ? "Noch keine Experimente verfügbar, bitte Mapping oder Datei prüfen."
+              : "Keine Auffälligkeiten in den importierten Reihen gefunden."}
           </p>
         ) : (
           <div className="experiment-findings">
@@ -116,10 +139,10 @@ export const ImportValidationReport = ({
                     <h5>{summary.experimentName}</h5>
                     <p className="meta">
                       {summary.findings.length === 0
-                        ? "No issues detected for this experiment."
-                        : `${summary.findings.length} finding${
-                            summary.findings.length === 1 ? "" : "s"
-                          }`}
+                        ? "Keine Auffälligkeiten für dieses Experiment."
+                        : `${summary.findings.length} Hinweis${
+                            summary.findings.length === 1 ? "" : "e"
+                          } gefunden`}
                     </p>
                   </div>
                   <span className={`status-pill ${statusTone[summary.status]}`}>
@@ -143,36 +166,36 @@ export const ImportValidationReport = ({
                               <p className="meta">{finding.description}</p>
                               {finding.seriesName && (
                                 <p className="meta">
-                                  Series: {finding.seriesName}
+                                  Datenreihe: {finding.seriesName}
                                 </p>
                               )}
                               {finding.hint && (
-                                <p className="hint-text">{finding.hint}</p>
+                                <p className="hint-text">Tipp: {finding.hint}</p>
                               )}
                             </div>
                           </div>
                           <span className={`severity-pill ${severityTone[finding.severity]}`}>
-                            {finding.severity}
+                            {severityLabel[finding.severity] ?? finding.severity}
                           </span>
                         </div>
                         <details className="technical-details">
-                          <summary>Show technical details</summary>
+                          <summary>Technische Details anzeigen</summary>
                           <div className="meta">
                             <p>Code: {finding.code}</p>
                             {finding.details?.droppedPoints !== undefined && (
-                              <p>Dropped points: {finding.details.droppedPoints}</p>
+                              <p>Verworfene Punkte: {finding.details.droppedPoints}</p>
                             )}
                             {finding.details?.duplicateCount !== undefined && (
-                              <p>Duplicate points: {finding.details.duplicateCount}</p>
+                              <p>Duplikate: {finding.details.duplicateCount}</p>
                             )}
                             {finding.details?.negativeCount !== undefined && (
-                              <p>Negative values: {finding.details.negativeCount}</p>
+                              <p>Negative Werte: {finding.details.negativeCount}</p>
                             )}
                             {finding.details?.pointCount !== undefined && (
-                              <p>Total points: {finding.details.pointCount}</p>
+                              <p>Gesamtpunkte: {finding.details.pointCount}</p>
                             )}
                             {finding.details?.timeIssueCount !== undefined && (
-                              <p>Non-increasing steps: {finding.details.timeIssueCount}</p>
+                              <p>Nicht-monotone Zeitpunkte: {finding.details.timeIssueCount}</p>
                             )}
                           </div>
                         </details>
@@ -187,7 +210,7 @@ export const ImportValidationReport = ({
       </div>
       <div className="validation-actions">
         <button type="button" className="btn btn-ghost" onClick={onBackToMapping}>
-          Back to mapping
+          Zurück zum Mapping
         </button>
         <button
           type="button"
@@ -195,7 +218,7 @@ export const ImportValidationReport = ({
           onClick={onContinue}
           disabled={disableContinue}
         >
-          Continue
+          Weiter
         </button>
       </div>
     </section>
