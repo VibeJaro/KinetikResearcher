@@ -1,9 +1,9 @@
-import type { ValidationReport } from "../../lib/import/validation";
+import type { ValidationReport, ValidationSeverity } from "../../lib/import/validation";
 
 const statusLabel: Record<ValidationReport["status"], string> = {
-  clean: "Clean",
-  "needs-info": "Needs info",
-  broken: "Broken"
+  clean: "Alles sauber",
+  "needs-info": "Prüfung nötig",
+  broken: "Blocker"
 };
 
 const statusTone: Record<ValidationReport["status"], string> = {
@@ -24,6 +24,12 @@ const severityIcon: Record<string, string> = {
   error: "⛔"
 };
 
+const severityLabel: Record<ValidationSeverity, string> = {
+  info: "Info",
+  warn: "Warnung",
+  error: "Fehler"
+};
+
 type ImportValidationReportProps = {
   report: ValidationReport | null;
   onBackToMapping: () => void;
@@ -40,8 +46,8 @@ export const ImportValidationReport = ({
   if (!report) {
     return (
       <div className="empty-state">
-        <h3>No validation report yet</h3>
-        <p>Apply a mapping to generate the import validation summary.</p>
+        <h3>Noch kein Validierungsbericht</h3>
+        <p>Wende zuerst ein Mapping an, um den Import-Check zu starten.</p>
       </div>
     );
   }
@@ -50,8 +56,23 @@ export const ImportValidationReport = ({
     <section className="validation-report">
       <header className="validation-header">
         <div>
-          <h3>Validation summary</h3>
-          <p className="meta">Import checks after mapping.</p>
+          <h3>Validierungsbericht</h3>
+          <p className="meta">
+            Sofort-Check nach dem Mapping. Grün = go, Gelb = nachfragen, Rot = zuerst beheben.
+          </p>
+          <div className="validation-guidance">
+            <ul className="plain-list">
+              <li>
+                <strong>1. Status oben lesen:</strong> Blocker? Dann zurück zum Mapping, sonst weiter.
+              </li>
+              <li>
+                <strong>2. Zahlen prüfen:</strong> Stimmen Experimente, Reihen und Punkte grob?
+              </li>
+              <li>
+                <strong>3. Befunde öffnen:</strong> Hinweise je Experiment kurz lesen und entscheiden.
+              </li>
+            </ul>
+          </div>
         </div>
         <span className={`status-pill ${statusTone[report.status]}`}>
           {statusLabel[report.status]}
@@ -59,27 +80,27 @@ export const ImportValidationReport = ({
       </header>
       <div className="validation-stats">
         <div>
-          <p className="meta">Experiments</p>
+          <p className="meta">Experimente</p>
           <strong>{report.counts.experiments}</strong>
         </div>
         <div>
-          <p className="meta">Series</p>
+          <p className="meta">Zeitreihen</p>
           <strong>{report.counts.series}</strong>
         </div>
         <div>
-          <p className="meta">Total points</p>
+          <p className="meta">Messpunkte gesamt</p>
           <strong>{report.counts.points}</strong>
         </div>
         <div>
-          <p className="meta">Dropped points</p>
+          <p className="meta">Verworfene Punkte</p>
           <strong>{report.counts.droppedPoints}</strong>
         </div>
       </div>
       <div className="validation-findings">
-        <h4>Findings by experiment</h4>
+        <h4>Befunde nach Experiment</h4>
         {report.datasetFindings.length > 0 && (
           <div className="validation-banner">
-            <h5>Dataset-level issues</h5>
+            <h5>Hinweise zum gesamten Datensatz</h5>
             <ul>
               {report.datasetFindings.map((finding) => (
                 <li key={finding.code} className="banner-item">
@@ -89,7 +110,7 @@ export const ImportValidationReport = ({
                   <div>
                     <p className="finding-title">{finding.title}</p>
                     <p className="meta">{finding.description}</p>
-                    {finding.hint && <p className="hint-text">{finding.hint}</p>}
+                    {finding.hint && <p className="hint-text">Aktion: {finding.hint}</p>}
                   </div>
                 </li>
               ))}
@@ -99,8 +120,8 @@ export const ImportValidationReport = ({
         {report.experimentSummaries.length === 0 ? (
           <p className="meta">
             {report.datasetFindings.length > 0
-              ? "No experiments are available to review yet."
-              : "No issues detected in the imported series."}
+              ? "Es gibt noch keine Experimente zum Prüfen."
+              : "Keine Probleme in den importierten Reihen gefunden."}
           </p>
         ) : (
           <div className="experiment-findings">
@@ -116,10 +137,10 @@ export const ImportValidationReport = ({
                     <h5>{summary.experimentName}</h5>
                     <p className="meta">
                       {summary.findings.length === 0
-                        ? "No issues detected for this experiment."
-                        : `${summary.findings.length} finding${
-                            summary.findings.length === 1 ? "" : "s"
-                          }`}
+                        ? "Keine Auffälligkeiten für dieses Experiment."
+                        : `${summary.findings.length} Befund${
+                            summary.findings.length === 1 ? "" : "e"
+                          } gefunden.`}
                     </p>
                   </div>
                   <span className={`status-pill ${statusTone[summary.status]}`}>
@@ -143,36 +164,36 @@ export const ImportValidationReport = ({
                               <p className="meta">{finding.description}</p>
                               {finding.seriesName && (
                                 <p className="meta">
-                                  Series: {finding.seriesName}
+                                  Serie: {finding.seriesName}
                                 </p>
                               )}
                               {finding.hint && (
-                                <p className="hint-text">{finding.hint}</p>
+                                <p className="hint-text">Aktion: {finding.hint}</p>
                               )}
                             </div>
                           </div>
                           <span className={`severity-pill ${severityTone[finding.severity]}`}>
-                            {finding.severity}
+                            {severityLabel[finding.severity]}
                           </span>
                         </div>
                         <details className="technical-details">
-                          <summary>Show technical details</summary>
+                          <summary>Technische Details anzeigen</summary>
                           <div className="meta">
                             <p>Code: {finding.code}</p>
                             {finding.details?.droppedPoints !== undefined && (
-                              <p>Dropped points: {finding.details.droppedPoints}</p>
+                              <p>Entfernte Punkte: {finding.details.droppedPoints}</p>
                             )}
                             {finding.details?.duplicateCount !== undefined && (
-                              <p>Duplicate points: {finding.details.duplicateCount}</p>
+                              <p>Doppelte Punkte: {finding.details.duplicateCount}</p>
                             )}
                             {finding.details?.negativeCount !== undefined && (
-                              <p>Negative values: {finding.details.negativeCount}</p>
+                              <p>Negative Werte: {finding.details.negativeCount}</p>
                             )}
                             {finding.details?.pointCount !== undefined && (
-                              <p>Total points: {finding.details.pointCount}</p>
+                              <p>Gesamtpunkte: {finding.details.pointCount}</p>
                             )}
                             {finding.details?.timeIssueCount !== undefined && (
-                              <p>Non-increasing steps: {finding.details.timeIssueCount}</p>
+                              <p>Nicht steigende Schritte: {finding.details.timeIssueCount}</p>
                             )}
                           </div>
                         </details>
@@ -187,7 +208,7 @@ export const ImportValidationReport = ({
       </div>
       <div className="validation-actions">
         <button type="button" className="btn btn-ghost" onClick={onBackToMapping}>
-          Back to mapping
+          Zurück zum Mapping
         </button>
         <button
           type="button"
@@ -195,7 +216,7 @@ export const ImportValidationReport = ({
           onClick={onContinue}
           disabled={disableContinue}
         >
-          Continue
+          Weiter zur Gruppierung
         </button>
       </div>
     </section>

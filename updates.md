@@ -1,4 +1,10 @@
 
+## 2025-05-10
+- Validierungsansicht komplett auf deutschsprachige Texte umgestellt und Schritt-für-Schritt-Hinweise ergänzt, damit Blocker/Hinweise klar unterscheidbar sind.
+- Serien-Check-Kacheln zeigen jetzt pro Reihe ein Mini-Diagramm (Messpunkte als Punkte, verbunden durch eine dünne schwarze Linie) plus Dauer, Punktzahl und Zeittyp.
+- Zusatztexte im Bericht leiten Nutzer:innen: Status lesen, Zählwerte prüfen, Befunde öffnen oder zurück zum Mapping gehen.
+- README und Updates aktualisiert, um den neuen Validierungs-Flow mit Diagrammen und Klartext zu dokumentieren.
+
 ## 2025-12-30
 - Sticky Header und Stepper-Inhalt auf den Card-Container ausgerichtet; Marken-Text vertikal zentriert.
 - Upload-Zone mit klarerem Hinweis: lokale Verarbeitung, kein vertrauliches Material hochladen.
