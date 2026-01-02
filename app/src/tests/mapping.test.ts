@@ -27,8 +27,7 @@ describe("mapping logic", () => {
       firstRowIsHeader: true,
       timeColumnIndex: 0,
       valueColumnIndices: [1],
-      experimentColumnIndex: 2,
-      replicateColumnIndex: null
+      experimentColumnIndex: 2
     };
 
     const result = applyMappingToDataset({
@@ -58,8 +57,7 @@ describe("mapping logic", () => {
       firstRowIsHeader: true,
       timeColumnIndex: 0,
       valueColumnIndices: [1],
-      experimentColumnIndex: null,
-      replicateColumnIndex: null
+      experimentColumnIndex: null
     };
 
     const result = applyMappingToDataset({

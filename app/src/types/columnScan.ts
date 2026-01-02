@@ -9,7 +9,6 @@ export type ColumnScanStructuralSummary = {
   time: string | null;
   values: string[];
   experiment: string | null;
-  replicate: string | null;
 };
 
 export type ColumnScanPayload = {

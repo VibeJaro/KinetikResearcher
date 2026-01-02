@@ -1,4 +1,10 @@
 
+## 2025-12-30
+- Sticky Header und Stepper-Inhalt auf den Card-Container ausgerichtet; Marken-Text vertikal zentriert.
+- Upload-Zone mit klarerem Hinweis: lokale Verarbeitung, kein vertrauliches Material hochladen.
+- Mapping-UI überarbeitet: Werte-Spalten per Mehrfachauswahl im Dropdown, Replicate-Auswahl entfernt und nachgelagerter Code bereinigt, Buttons im CTA-Stil angepasst.
+- Vorschau reagiert auf die Experiment-Spalte und zeigt sofort die ersten 20 Experimente (jeweils erste Zeile) mit entsprechendem Hinweistext.
+
 ## 2025-02-21
 - Import & Mapping-Screen komplett auf das neue Draft-Layout umgestellt (Header mit Badge, horizontaler 5-Schritte-Stepper, card-basierter Container).
 - Upload-Experience überarbeitet: Drag-and-Drop-Zone mit klaren Hinweisen, eingebettetem Dateiauswahl-Button und Fehlermeldung im Card-Stil; Reset-Button „Entfernen“ entfernt importierte Datei inkl. Mapping-State.

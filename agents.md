@@ -144,3 +144,10 @@ Zulässige Agent-Calls (Beispiele):
 - Keine Transformation ohne Audit-Eintrag.
 - Keine Einheit ohne Parser + explizite Darstellung.
 - Keine “magischen” LLM-Behauptungen ohne Evidenz/Flags.
+
+---
+
+## 16) Screenshots bei UI-Änderungen
+- Wenn sichtbare UI geändert wird, im PR mindestens einen aktuellen Screenshot anhängen.
+- Vorgehen: `cd app && npm run dev -- --host --port 4173` starten, dann mit dem bereitgestellten Browser-Tool/Playwright ein Bild erzeugen (z.B. `run_playwright_script` mit `page.set_input_files(...)`, Auswahl der relevanten Spalten und `page.screenshot(...)` in `artifacts/`).
+- Pfad im PR-Text referenzieren (`![Beschreibung](browser:/tmp/.../artifacts/...)`) und darauf achten, dass der Screenshot die geänderte UI (Buttons/Preview etc.) zeigt.
