@@ -22,11 +22,12 @@ Eine App, die Projektchemiker:innen und Ingenieur:innen Schritt für Schritt dur
 
 ## 2) Design-Draft (WICHTIG)
 - Referenz & Vorschau: `design/kinetik-researcher.design-draft.html` (UI/UX-Vertrag). Im Browser öffnen, um das neue End-to-End-Layout zu sehen.
-- Neues UI/UX-Grundgerüst: Sticky Header mit Nutzer-Badge, horizontaler 5-Schritte-Stepper mit Fortschrittsbalken, card-basierte Screens im mittig ausgerichteten Container.
+- Neues UI/UX-Grundgerüst: Sticky Header mit Nutzer-Badge, horizontaler Stepper mit Fortschrittsbalken (5 oder 6 Schritte je nach Darstellung von Abweichungen/Repräsentativität), card-basierte Screens im mittig ausgerichteten Container.
 - Step-Spezifika aus dem Draft (müssen in der App erkennbar sein):
   - Import: Drag-and-Drop Upload-Zone, danach Mapping-Card mit Dropdowns und „Weiter zur Validierung“-CTA.
   - Validation: Checkliste mit Badge-Status (Laden/OK), KI-Analyse-Hinweisbox und CTA-Leiste „Zurück/Abschließen“ unten.
-  - Gruppierung: Grid aus farbmarkierten Group-Cards, „Neue Gruppe +“-Button und klarer „Bestätigen“-CTA.
+  - Abweichungen: Auswahl der Kommentarspalten, LLM markiert potenzielle Abweichungen pro Experiment, Ergebnisse als Liste/Badges sichtbar.
+  - Repräsentativität: Auswahl relevanter Referenzspalten, LLM gleicht markierte Abweichungen dagegen ab und kennzeichnet Experimente (repräsentativ / nicht), klarer CTA „Weiter“.
   - Modeling: Zweispaltig (links Fit-Parameter inkl. Arrhenius-Checkbox + R²-Summary, rechts Chart-Card mit Legende), Abschluss-CTA „Berechnen“.
   - Report: Zweispaltig (links Chat mit Quick-Replies und „Report Generieren“, rechts PDF-Preview mit Titelbar + Download-CTA).
 - Implementierungen in `app/` müssen diese Layouts und Kerninteraktionen funktional widerspiegeln; visuelle Feinheiten dürfen mit Framework-Styles umgesetzt werden.
@@ -37,11 +38,12 @@ Eine App, die Projektchemiker:innen und Ingenieur:innen Schritt für Schritt dur
 ## 3) Workflow im UI (sichtbar und geführt)
 1) **Import & Mapping** – Upload-Hinweise, Beispiel-Formate, auto-vorgeschlagene Rollen, einfache Korrekturen.
 2) **Validation** – Flag-Liste mit Klartext, Prioritäten, Fix-Vorschlägen und Effekten auf spätere Schritte.
-3) **Grouping (LLM-unterstützt)** – LLM erhält alle Spaltennamen und unique Values, schlägt sinnvolle Gruppierungen/Experimente vor (z.B. Additiv, Temperaturrampe, anderes Edukt). Nutzer:innen können Vorschläge annehmen/ändern; alles landet im Audit-Log.
-4) **Modeling/Fit** – verständliche Presets (z.B. “einfacher 1. Ordnung Fit”), Parameter-Erklärungen, Ergebnis-Klartext.
-5) **Report/Export (LLM-unterstützt)** – LLM stellt Klarstellungsfragen, prüft Missverständnisse/Unsicherheiten und erzeugt einen ausführlichen Report inkl. Grafiken; Annahmen klar markieren.
+3) **Abweichungen (LLM, Kommentarspalten)** – Nutzer:innen wählen eine oder mehrere Kommentarspalten. Das LLM liest die Einträge pro Experiment, markiert potenzielle Abweichungen (Kategorien folgen) und notiert Herkunftsspalten im Audit-Log.
+4) **Repräsentativitäts-Check (LLM-Abgleich)** – Nutzer:innen wählen relevante Referenzspalten; das LLM gleicht die Abweichungen dagegen ab und kennzeichnet Experimente als repräsentativ oder nicht, inkl. Rationale im Audit-Log.
+5) **Modeling/Fit** – verständliche Presets (z.B. “einfacher 1. Ordnung Fit”), Parameter-Erklärungen, Ergebnis-Klartext.
+6) **Report/Export (LLM-unterstützt)** – LLM stellt Klarstellungsfragen, prüft Missverständnisse/Unsicherheiten und erzeugt einen ausführlichen Report inkl. Grafiken; Annahmen klar markieren.
 
-Diese 5 Schritte müssen in der Navigation erkennbar und entlang des Drafts umgesetzt sein.
+Diese Schritte müssen in der Navigation erkennbar und entlang des Drafts umgesetzt sein (Stepper ggf. von 5 auf 6 Schritte anpassen oder Abweichung/Repräsentativität als gekoppelten Doppel-Schritt visualisieren).
 
 ---
 
@@ -134,8 +136,9 @@ Zulässige Agent-Calls (Beispiele):
 4) Validation Engine v1 + Flags UI
 5) Audit-Log v1 (Decisions + Anzeige)
 6) Questions UI + applyDecision
-7) Modeling v1 (1. Ordnung) + Diagnoseplots Placeholder
-8) Report v1 (Markdown Preview + Export Dummy)
+7) Abweichungsscan (Kommentarspalten) + Repräsentativitäts-Check (LLM-Abgleich)
+8) Modeling v1 (1. Ordnung) + Diagnoseplots Placeholder
+9) Report v1 (Markdown Preview + Export Dummy)
 
 ---
 
