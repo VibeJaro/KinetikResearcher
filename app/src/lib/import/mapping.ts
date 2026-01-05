@@ -220,6 +220,18 @@ export const applyMappingToDataset = ({
     const valueHeaders = selection.valueColumnIndices.map(
       (index) => headers[index] ?? `Column ${index + 1}`
     );
+
+    const columnValues = headers.reduce<Record<string, Set<string>>>((acc, header, columnIndex) => {
+      acc[header] = new Set<string>();
+      rows.forEach((row) => {
+        const value = toLabel(row[columnIndex] ?? null);
+        if (value) {
+          acc[header].add(value);
+        }
+      });
+      return acc;
+    }, {});
+
     experiments.push(
       ensureMetaRaw({
         experimentId: createId("exp"),
@@ -230,7 +242,10 @@ export const applyMappingToDataset = ({
           valueHeaders: valueHeaders.join(", "),
           experimentHeader: experimentIndex === -1 ? null : headers[experimentIndex] ?? null,
           sheetName: normalizedTable.sheetName ?? null
-        }
+        },
+        columnValues: Object.fromEntries(
+          Object.entries(columnValues).map(([key, set]) => [key, Array.from(set)])
+        )
       })
     );
   });

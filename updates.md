@@ -1,4 +1,9 @@
 
+## 2026-01-03
+- Neuer Abweichungs-Schritt ersetzt Grouping: Kommentar- und Parameter-Spalten können gewählt werden, danach läuft ein sequenzieller LLM-Scan (ein Call pro Experiment) auf die feste 10er-Ontologie.
+- UI für Abweichungsbefunde zeigt kompakte Hinweise pro Experiment (Kategorie-Icon, Quelle, Textausschnitt) sowie Filter „Nur Versuche ohne Auffälligkeiten“ und „Zeig mir alle mit Dosierabweichung“.
+- Audit-Log erhält Start/End-Einträge zur Abweichungsanalyse; Mapping speichert jetzt alle Spaltenwerte pro Experiment, damit Kommentar- und Parameterkontext verfügbar sind.
+
 ## 2026-01-02
 - Validierungstexte durchgehend auf Deutsch gestellt und Status/Schweregrade klar benannt.
 - Serien-Check um Mini-Plots (Punkte + schwarze Linie) ergänzt, um Plausibilität pro Reihe sofort zu sehen.

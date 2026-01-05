@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
-import { GroupingScreen } from "./components/grouping/GroupingScreen";
+import { DeviationScreen } from "./components/deviations/DeviationScreen";
 import { MappingPanel } from "./components/import/MappingPanel";
 import { ValidationScreen } from "./components/validation/ValidationScreen";
 import { buildColumnSummaries } from "./lib/columnScan/buildColumnSummaries";
@@ -16,15 +16,17 @@ import type { AuditEntry, Dataset, RawTable } from "./lib/import/types";
 import type { ValidationReport } from "./lib/import/validation";
 import { generateImportValidationReport } from "./lib/import/validation";
 import type { ColumnScanPayload } from "./types/columnScan";
+import type { DeviationFinding } from "./types/deviations";
+import { analyzeExperimentForDeviations } from "./lib/deviations/analyzeExperiment";
 
 // UI reference draft: design/kinetik-researcher.design-draft.html
 
-type StepKey = "import" | "validation" | "grouping" | "modeling" | "report";
+type StepKey = "import" | "validation" | "deviations" | "modeling" | "report";
 
 const steps: { key: StepKey; label: string; description: string }[] = [
   { key: "import", label: "Import", description: "Rohdaten laden & zuweisen" },
   { key: "validation", label: "Validierung", description: "Schneller Daten-Check" },
-  { key: "grouping", label: "Grouping", description: "Experimente bündeln" },
+  { key: "deviations", label: "Abweichungen", description: "Kommentare prüfen" },
   { key: "modeling", label: "Modeling", description: "Fit & Charts" },
   { key: "report", label: "Report", description: "Zusammenfassung" }
 ];
@@ -78,6 +80,14 @@ function App() {
     useState<MappingSelection | null>(null);
   const [importReport, setImportReport] = useState<ValidationReport | null>(null);
   const mappingPanelRef = useRef<HTMLDivElement | null>(null);
+  const [deviationSelection, setDeviationSelection] = useState<{
+    commentColumns: string[];
+    parameterColumns: string[];
+  }>({ commentColumns: [], parameterColumns: [] });
+  const [deviationFindings, setDeviationFindings] = useState<Record<string, DeviationFinding[]>>(
+    {}
+  );
+  const [deviationStatus, setDeviationStatus] = useState<"idle" | "running" | "done">("idle");
 
   const normalizedActiveTable = useMemo(
     () =>
@@ -90,6 +100,30 @@ function App() {
     () => dataset?.experiments ?? [],
     [dataset?.experiments]
   );
+  const availableColumns = useMemo(() => {
+    const allColumns = new Set<string>();
+    importedExperiments.forEach((experiment) => {
+      Object.keys(experiment.columnValues ?? {}).forEach((key) => allColumns.add(key));
+    });
+    const structural = new Set<string>();
+    importedExperiments.forEach((experiment) => {
+      const { timeHeader, valueHeaders, experimentHeader } = experiment.metaRaw;
+      if (typeof timeHeader === "string") structural.add(timeHeader);
+      if (typeof experimentHeader === "string") structural.add(experimentHeader);
+      if (typeof valueHeaders === "string") {
+        valueHeaders
+          .split(",")
+          .map((item) => item.trim())
+          .filter(Boolean)
+          .forEach((item) => structural.add(item));
+      }
+    });
+    const filtered = Array.from(allColumns).filter((column) => !structural.has(column));
+    if (filtered.length > 0) {
+      return filtered.sort((a, b) => a.localeCompare(b));
+    }
+    return Array.from(allColumns).sort((a, b) => a.localeCompare(b));
+  }, [importedExperiments]);
 
   useEffect(() => {
     setDataset((prev) => (prev ? { ...prev, audit: auditEntries } : prev));
@@ -268,6 +302,9 @@ function App() {
     setMappingSuccess(null);
     setMappingSuccessShown(false);
     setLastAppliedSelection(null);
+    setDeviationFindings({});
+    setDeviationSelection({ commentColumns: [], parameterColumns: [] });
+    setDeviationStatus("idle");
   };
 
   const handleSheetChange = (sheetName: string) => {
@@ -340,7 +377,7 @@ function App() {
     if (!importReport || importReport.status === "broken") {
       return;
     }
-    setActiveStep("grouping");
+    setActiveStep("deviations");
   };
 
   const handleContinueToValidation = () => {
@@ -350,8 +387,42 @@ function App() {
   const isStepEnabled = (stepKey: StepKey): boolean => {
     if (stepKey === "import") return true;
     if (stepKey === "validation") return Boolean(mappingSuccess);
-    if (stepKey === "grouping") return Boolean(importedExperiments.length);
+    if (stepKey === "deviations") return Boolean(importedExperiments.length);
     return Boolean(importedExperiments.length);
+  };
+
+  const handleRunDeviationAnalysis = (selection: {
+    commentColumns: string[];
+    parameterColumns: string[];
+  }) => {
+    if (!importedExperiments.length) return;
+    setDeviationStatus("running");
+    setDeviationSelection(selection);
+    setDeviationFindings({});
+    const startEntry = createAuditEntry("DEVIATION_ANALYSIS_STARTED", {
+      commentColumns: selection.commentColumns,
+      parameterColumns: selection.parameterColumns,
+      experimentCount: importedExperiments.length
+    });
+    setAuditEntries((prev) => [startEntry, ...prev]);
+
+    const runSequentially = async () => {
+      const allFindings: Record<string, DeviationFinding[]> = {};
+      for (const experiment of importedExperiments) {
+        const findings = analyzeExperimentForDeviations(experiment, selection.commentColumns);
+        allFindings[experiment.experimentId] = findings;
+        setDeviationFindings((prev) => ({ ...prev, [experiment.experimentId]: findings }));
+        await new Promise((resolve) => setTimeout(resolve, 150));
+      }
+      setDeviationStatus("done");
+      const endEntry = createAuditEntry("DEVIATION_ANALYSIS_COMPLETED", {
+        analyzedExperiments: importedExperiments.length,
+        withFindings: Object.values(allFindings).filter((items) => items.length > 0).length
+      });
+      setAuditEntries((prev) => [endEntry, ...prev]);
+    };
+
+    void runSequentially();
   };
 
   const renderImportStep = () => (
@@ -502,11 +573,16 @@ function App() {
       );
     }
 
-    if (activeStep === "grouping") {
+    if (activeStep === "deviations") {
       return (
-        <GroupingScreen
+        <DeviationScreen
           experiments={importedExperiments}
-          columnScanPayload={columnScanPayload}
+          columnOptions={availableColumns}
+          selection={deviationSelection}
+          onSelectionChange={setDeviationSelection}
+          findings={deviationFindings}
+          status={deviationStatus}
+          onRunAnalysis={handleRunDeviationAnalysis}
         />
       );
     }
