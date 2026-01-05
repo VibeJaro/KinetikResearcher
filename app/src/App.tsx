@@ -1,30 +1,22 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
-import { GroupingScreen } from "./components/grouping/GroupingScreen";
+import { DeviationScreen } from "./components/deviations/DeviationScreen";
 import { MappingPanel } from "./components/import/MappingPanel";
 import { ValidationScreen } from "./components/validation/ValidationScreen";
-import { buildColumnSummaries } from "./lib/columnScan/buildColumnSummaries";
-import {
-  applyMappingToDataset,
-  normalizeMappingTable,
-  type MappingError,
-  type MappingSelection,
-  type MappingStats
-} from "./lib/import/mapping";
+import { applyMappingToDataset, type MappingError, type MappingSelection, type MappingStats } from "./lib/import/mapping";
 import { parseFile } from "./lib/import/parseFile";
 import type { AuditEntry, Dataset, RawTable } from "./lib/import/types";
 import type { ValidationReport } from "./lib/import/validation";
 import { generateImportValidationReport } from "./lib/import/validation";
-import type { ColumnScanPayload } from "./types/columnScan";
 
 // UI reference draft: design/kinetik-researcher.design-draft.html
 
-type StepKey = "import" | "validation" | "grouping" | "modeling" | "report";
+type StepKey = "import" | "validation" | "deviations" | "modeling" | "report";
 
 const steps: { key: StepKey; label: string; description: string }[] = [
   { key: "import", label: "Import", description: "Rohdaten laden & zuweisen" },
   { key: "validation", label: "Validierung", description: "Schneller Daten-Check" },
-  { key: "grouping", label: "Grouping", description: "Experimente bündeln" },
+  { key: "deviations", label: "Abweichungen", description: "Kommentare prüfen" },
   { key: "modeling", label: "Modeling", description: "Fit & Charts" },
   { key: "report", label: "Report", description: "Zusammenfassung" }
 ];
@@ -79,13 +71,15 @@ function App() {
   const [importReport, setImportReport] = useState<ValidationReport | null>(null);
   const mappingPanelRef = useRef<HTMLDivElement | null>(null);
 
-  const normalizedActiveTable = useMemo(
-    () =>
-      activeRawTable
-        ? normalizeMappingTable(activeRawTable, mappingSelection.firstRowIsHeader)
-        : null,
-    [activeRawTable, mappingSelection.firstRowIsHeader]
-  );
+  const appendAuditEntry = useCallback((type: string, payload: Record<string, unknown>) => {
+    const entry = createAuditEntry(type, payload);
+    setAuditEntries((prev) => {
+      const next = [entry, ...prev];
+      setDataset((current) => (current ? { ...current, audit: next } : current));
+      return next;
+    });
+  }, []);
+
   const importedExperiments = useMemo(
     () => dataset?.experiments ?? [],
     [dataset?.experiments]
@@ -94,45 +88,6 @@ function App() {
   useEffect(() => {
     setDataset((prev) => (prev ? { ...prev, audit: auditEntries } : prev));
   }, [auditEntries]);
-
-  const columnScanPayload = useMemo<ColumnScanPayload | null>(() => {
-    if (!normalizedActiveTable) {
-      return null;
-    }
-    const columnProfiles = buildColumnSummaries(normalizedActiveTable);
-    if (columnProfiles.length === 0) {
-      return null;
-    }
-    const getHeader = (index: number | null): string | null =>
-      index !== null && columnProfiles[index] ? columnProfiles[index].name : null;
-    const valueHeaders = mappingSelection.valueColumnIndices
-      .map((index) => columnProfiles[index]?.name)
-      .filter((header): header is string => typeof header === "string");
-
-    const structuralSummary = {
-      time: getHeader(mappingSelection.timeColumnIndex),
-      values: valueHeaders,
-      experiment: getHeader(mappingSelection.experimentColumnIndex)
-    };
-    const knownStructuralColumns = Array.from(
-      new Set(
-        [
-          structuralSummary.time,
-          structuralSummary.experiment,
-          ...structuralSummary.values
-        ].filter(
-          (value): value is string => typeof value === "string" && value.trim().length > 0
-        )
-      )
-    );
-
-    return {
-      columns: columnProfiles,
-      experimentCount: mappingStats?.experimentCount ?? null,
-      knownStructuralColumns,
-      structuralSummary
-    };
-  }, [mappingSelection, mappingStats, normalizedActiveTable]);
 
   useEffect(() => {
     if (!activeRawTable) {
@@ -340,7 +295,7 @@ function App() {
     if (!importReport || importReport.status === "broken") {
       return;
     }
-    setActiveStep("grouping");
+    setActiveStep("deviations");
   };
 
   const handleContinueToValidation = () => {
@@ -350,7 +305,7 @@ function App() {
   const isStepEnabled = (stepKey: StepKey): boolean => {
     if (stepKey === "import") return true;
     if (stepKey === "validation") return Boolean(mappingSuccess);
-    if (stepKey === "grouping") return Boolean(importedExperiments.length);
+    if (stepKey === "deviations") return Boolean(importedExperiments.length);
     return Boolean(importedExperiments.length);
   };
 
@@ -502,11 +457,11 @@ function App() {
       );
     }
 
-    if (activeStep === "grouping") {
+    if (activeStep === "deviations") {
       return (
-        <GroupingScreen
+        <DeviationScreen
           experiments={importedExperiments}
-          columnScanPayload={columnScanPayload}
+          onAudit={(type, payload) => appendAuditEntry(type, payload)}
         />
       );
     }

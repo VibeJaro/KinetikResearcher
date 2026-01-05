@@ -181,6 +181,29 @@ export const applyMappingToDataset = ({
   let pointCount = 0;
 
   Array.from(groupMap.entries()).forEach(([groupName, rows]) => {
+    const metaColumnIndices = headers
+      .map((_, index) => index)
+      .filter(
+        (index) =>
+          index !== timeIndex &&
+          index !== experimentIndex &&
+          !selection.valueColumnIndices.includes(index)
+      );
+    const metaAccumulator = new Map<string, string[]>();
+
+    rows.forEach((row) => {
+      metaColumnIndices.forEach((columnIndex) => {
+        const header = headers[columnIndex] ?? `Column ${columnIndex + 1}`;
+        const label = toLabel(row[columnIndex] ?? null);
+        if (!label) return;
+        const values = metaAccumulator.get(header) ?? [];
+        if (!values.includes(label)) {
+          values.push(label);
+          metaAccumulator.set(header, values);
+        }
+      });
+    });
+
     const series: Series[] = selection.valueColumnIndices.map((valueIndex) => {
       const time: number[] = [];
       const y: number[] = [];
@@ -220,6 +243,11 @@ export const applyMappingToDataset = ({
     const valueHeaders = selection.valueColumnIndices.map(
       (index) => headers[index] ?? `Column ${index + 1}`
     );
+
+    const metaRaw = Object.fromEntries(
+      Array.from(metaAccumulator.entries()).map(([key, values]) => [key, values.join(" | ")])
+    );
+
     experiments.push(
       ensureMetaRaw({
         experimentId: createId("exp"),
@@ -229,7 +257,8 @@ export const applyMappingToDataset = ({
           timeHeader: headers[timeIndex] ?? null,
           valueHeaders: valueHeaders.join(", "),
           experimentHeader: experimentIndex === -1 ? null : headers[experimentIndex] ?? null,
-          sheetName: normalizedTable.sheetName ?? null
+          sheetName: normalizedTable.sheetName ?? null,
+          ...metaRaw
         }
       })
     );

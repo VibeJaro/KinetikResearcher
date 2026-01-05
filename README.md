@@ -39,6 +39,12 @@ Die Import-Logik nutzt einen Mapping-Wizard (siehe `app/src/lib/import/mapping.t
 - Im Folgeschritt wählt der/die Nutzer:in Referenzspalten, das LLM gleicht Abweichungen dagegen ab und kennzeichnet Experimente als repräsentativ oder nicht (mit Rationale im Audit-Log).
 - Der bisherige Grouping-Schritt entfällt; UI und Navigation müssen die neuen Schritte sichtbar machen (Stepper ggf. anpassen).
 
+### Abweichungsanalyse pro Experiment (LLM + Fallback)
+- Client & Prompting: `app/src/lib/deviations/` sammelt Kommentartext pro Experiment, verankert die 10 Ontologie-Kategorien (`instrument_issue`, `calibration_gap`, `contamination_suspected`, `sampling_error`, `data_entry_problem`, `procedure_deviation`, `unexpected_reaction`, `environmental_condition`, `missing_context`, `quality_control_flag`) und feuert genau einen Call an `/api/deviation-analyze` pro Experiment.
+- Modellwahl & Timeout: Standardmodell `gpt-5.2-mini`, Client-Timeout 12s, API-Timeout 20s (AbortController). Die API liefert strikt validiertes JSON; nur die 10 Kategorien werden akzeptiert.
+- Fallback: Schlägt der LLM-Call fehl oder läuft in den Timeout, springt der Client auf `analyzeExperimentForDeviations` (heuristische Schlagwortsuche) und markiert das Ergebnis als Fallback.
+- Audit-Log: `DEVIATION_REQUESTED`/`DEVIATION_RESULT`/`DEVIATION_FAILED`/`DEVIATION_FALLBACK` halten Modell, Kategorien, RequestId und Fallback-Hinweise fest.
+
 ## LLM Column Scan (optional Helfer)
 - Serverless Route: `api/column-scan.ts` (Node runtime) ruft `gpt-5.2` über den OpenAI Node SDK auf und liefert validiertes JSON.
 - Env: `OPENAI_API_KEY` für lokalen Betrieb und Vercel.
