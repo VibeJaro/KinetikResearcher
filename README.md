@@ -8,6 +8,7 @@ Ein geführter Kinetik-Assistent für Chemiker:innen und Ingenieur:innen, die sc
 - **Validierung auf Deutsch**: Serien-Kacheln mit Mini-Plots (Punkte + Linie), klare Kurztexte und Handlungsempfehlungen, damit auch nicht-expertische Nutzer:innen schnell entscheiden können.
 - **Auditierbar**: Jede Annahme und Antwort landet im Audit-Log, ohne die vorhandenen Funktionen einzuschränken.
 - **Deterministischer Kern**: Fitting, Einheiten, Plots laufen als Code; LLM nur für Hinweise, Fragen, Textbausteine.
+- **LLM klar ausgewiesen**: Abweichungen werden ausschließlich mit GPT-5.2 mini erkannt; pro Experiment ein Aufruf, kein Fallback auf Heuristiken.
 
 ## Design-Referenz
 Das App-Layout folgt dem UI-Design-Draft unter `design/kinetik-researcher.design-draft.html` (Design-Vertrag, kein Produktionscode). Öffne die Datei im Browser, um das neue End-to-End-UI zu sehen. Implementierungen in `app/` sollen die dortige Informationsarchitektur und Kerninteraktionen funktional widerspiegeln:
@@ -35,9 +36,46 @@ npm test
 Die Import-Logik nutzt einen Mapping-Wizard (siehe `app/src/lib/import/mapping.ts`) und eine Validierung mit klaren Hinweisen und Prioritäten (siehe `app/src/lib/import/validation.ts`). Weitere Feature-spezifische Ordner liegen unter `app/src/lib/` und `app/src/ui/` entlang der oben genannten Schritte.
 
 ### Abweichungsscan & Repräsentativitäts-Check (LLM-unterstützt)
-- Nutzer:innen wählen Kommentarspalten; das LLM markiert Auffälligkeiten pro Experiment (Kategorien/Labels werden ergänzt).
+- Nutzer:innen wählen Kommentarspalten; das LLM markiert Auffälligkeiten pro Experiment (Kategorien/Labels werden ergänzt). Die Analyse erfolgt strikt via GPT-5.2 mini, ein Call pro Experiment, ohne Fallback.
 - Im Folgeschritt wählt der/die Nutzer:in Referenzspalten, das LLM gleicht Abweichungen dagegen ab und kennzeichnet Experimente als repräsentativ oder nicht (mit Rationale im Audit-Log).
 - Der bisherige Grouping-Schritt entfällt; UI und Navigation müssen die neuen Schritte sichtbar machen (Stepper ggf. anpassen).
+
+### LLM-Abweichungsanalyse (Schritt 3)
+- Auswahl: Kommentarspalten (potenzielle Abweichungen) und relevante Kontextspalten (z.B. Temperatur, Edukte, Additive, Lösemittel).
+- Verarbeitung: GPT-5.2 mini liest pro Experiment die Kommentarspalten, klassifiziert höchstens in die folgenden 10 Ontologie-Kategorien (keine weitere erlaubt) und liefert die Original-Textstelle:
+  1. Apparatur- oder Anlagenprobleme
+  2. Abweichender Dosier- oder Zugabemodus
+  3. Temperatur- oder Druckinstabilität
+  4. Geänderte Reihenfolge oder veränderter Ablauf
+  5. Probleme mit Materialqualität oder Verunreinigungen
+  6. Unerwartete Ereignisse oder Zwischenfälle
+  7. Explizite Warnungen oder Einschränkungen
+  8. Geänderter Aufarbeitungs- oder Isolationsschritt
+  9. Probleme bei Analytik oder Probenahme
+  10. Explizite Angabe zentraler Versuchsparameter im Kommentar
+- Ausgabe (JSON-only, keine Bewertungen/Korrekturvorschläge):
+  ```json
+  {
+    "experimentId": "exp-123",
+    "experimentName": "Experiment A",
+    "model": "gpt-5.2-mini",
+    "status": "findings | no_findings",
+    "findings": [
+      {
+        "category": "<one of the 10 ids>",
+        "snippet": "exakte Textstelle aus der Kommentarspalte",
+        "sourceColumn": "Kommentar",
+        "note": "optional, kurz"
+      }
+    ],
+    "usedColumns": {
+      "deviation": ["Kommentar"],
+      "parameters": ["Temperatur", "Lösemittel"]
+    },
+    "requestId": "req-abc"
+  }
+  ```
+- UI: sichtbare LLM-Kennzeichnung („LLM · GPT-5.2 mini · kein Fallback“), Filter „Nur Versuche mit Auffälligkeiten“ sowie Ontologie-Filter pro Kategorie.
 
 ## LLM Column Scan (optional Helfer)
 - Serverless Route: `api/column-scan.ts` (Node runtime) ruft `gpt-5.2` über den OpenAI Node SDK auf und liefert validiertes JSON.
@@ -45,3 +83,8 @@ Die Import-Logik nutzt einen Mapping-Wizard (siehe `app/src/lib/import/mapping.t
 - Request (POST `/api/column-scan`): columns-Array (name, typeHeuristic, nonNullRatio, examples), optional `experimentCount`, `knownStructuralColumns`, `includeComments`.
 - Response (200): `{ ok: true, requestId, result: { selectedColumns, columnRoles, factorCandidates, notes, uncertainties } }` mit strengen Limits.
 - UI: Im Abweichungs-/Repräsentativitäts-Bereich als “Column scan” Panel: Request zusammenstellen, `includeComments` toggeln, Vorschläge prüfen und manuell verfeinern.
+
+### LLM Deviation Scan API
+- Route: `api/deviation-scan.ts` (Node runtime) ruft **GPT-5.2 mini** auf; kein Fallback.
+- Request (POST `/api/deviation-scan`): `experimentId`, `experimentName`, `deviationColumns[{ column, snippets[] }]`, optionale `parameterColumns[{ column, values[] }]`.
+- Response (200): `{ ok: true, requestId, result: { experimentId, model: "gpt-5.2-mini", status, findings[] } }` oder Fehlerobjekt inkl. Debug-Prompt.
