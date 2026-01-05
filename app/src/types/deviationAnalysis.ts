@@ -22,7 +22,7 @@ export type ExperimentDeviationResult = {
   experimentName: string;
   status: "pending" | "running" | "no_findings" | "findings" | "error";
   findings: DeviationFinding[];
-  model: "gpt-5.2-mini";
+  model: "gpt-5-mini-2025-08-07" | "gpt-5-mini";
   requestId?: string;
   usedColumns?: { deviation: string[]; parameters: string[] };
   error?: string;
@@ -116,7 +116,7 @@ export const deviationResultSchema = {
   properties: {
     experimentId: { type: "string" },
     experimentName: { type: "string" },
-    model: { type: "string", enum: ["gpt-5.2-mini"] },
+    model: { type: "string", enum: ["gpt-5-mini-2025-08-07", "gpt-5-mini"] },
     status: { type: "string", enum: ["no_findings", "findings"] },
     findings: {
       type: "array",

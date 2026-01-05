@@ -1,8 +1,8 @@
 
 ## 2026-02-24
-- Schritt 3 „Abweichungen“ ersetzt das frühere Grouping: Nutzer:innen wählen Kommentar- und Kontextspalten, der LLM-Scan (GPT-5.2 mini, 1 Call pro Experiment, kein Fallback) weist Abweichungen den 10 Ontologie-Kategorien zu und zeigt die Original-Textstellen.
+- Schritt 3 „Abweichungen“ ersetzt das frühere Grouping: Nutzer:innen wählen Kommentar- und Kontextspalten, der LLM-Scan (GPT-5 mini-2025-08-07 mit Fallback gpt-5-mini, 1 Call pro Experiment) weist Abweichungen den 10 Ontologie-Kategorien zu und zeigt die Original-Textstellen.
 - Neues UI mit LLM-Badge, Ontologie-Filter und Status-Pills (Warnungen, fehlerhafte Runs, saubere Experimente); JSON-Schema für Ergebnisse dokumentiert.
-- Serverless-Route `api/deviation-scan.ts` ergänzt: validiert Eingaben strikt, ruft GPT-5.2 mini auf und liefert strukturierte Findings inklusive Request-ID.
+- Serverless-Route `api/deviation-scan.ts` ergänzt: validiert Eingaben strikt, ruft bevorzugt gpt-5-mini-2025-08-07 (Fallback gpt-5-mini) auf und liefert strukturierte Findings inklusive Request-ID.
 
 ## 2026-01-02
 - Validierungstexte durchgehend auf Deutsch gestellt und Status/Schweregrade klar benannt.

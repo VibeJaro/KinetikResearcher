@@ -42,7 +42,7 @@ type DeviationFinding = {
 type DeviationScanModelResult = {
   experimentId: string;
   experimentName?: string;
-  model: "gpt-5.2-mini";
+  model: "gpt-5-mini-2025-08-07" | "gpt-5-mini";
   status: "no_findings" | "findings";
   findings: DeviationFinding[];
 };
@@ -310,7 +310,7 @@ const validateModelResult = (data: unknown): ValidationResult<DeviationScanModel
   if (normalizeString(experimentId) === "") {
     return { ok: false, message: "Invalid model output" };
   }
-  if (model !== "gpt-5.2-mini") {
+  if (!["gpt-5-mini-2025-08-07", "gpt-5-mini"].includes(model)) {
     return { ok: false, message: "Invalid model output" };
   }
   if (!["no_findings", "findings"].includes(status)) {
@@ -355,7 +355,7 @@ const validateModelResult = (data: unknown): ValidationResult<DeviationScanModel
     value: {
       experimentId: normalizeString(experimentId),
       experimentName: normalizeString(experimentName),
-      model: "gpt-5.2-mini",
+      model: model as "gpt-5-mini-2025-08-07" | "gpt-5-mini",
       status: status as "no_findings" | "findings",
       findings: sanitizedFindings
     }
@@ -370,7 +370,7 @@ const buildPrompt = (payload: ValidatedRequest): { system: string; user: string 
   const schemaText = `{
   "experimentId": string,
   "experimentName": string,
-  "model": "gpt-5.2-mini",
+  "model": "gpt-5-mini-2025-08-07" | "gpt-5-mini",
   "status": "no_findings" | "findings",
   "findings": [
     {"category": <ontology id>, "snippet": string, "sourceColumn": string, "note": string?}
@@ -383,7 +383,7 @@ const buildPrompt = (payload: ValidatedRequest): { system: string; user: string 
     ontologyText,
     "Gib keine Bewertungen, keine Korrekturvorschläge und kein Urteil zur Datenqualität.",
     "Identifiziere nur Textstellen aus den Kommentarspalten, auf denen die Entscheidung beruht.",
-    "Die Analyse muss von GPT-5.2 mini stammen; es gibt keinen Fallback.",
+    "Bevorzugtes Modell: gpt-5-mini-2025-08-07. Fallback: gpt-5-mini. Die Analyse muss von einem OpenAI-LLM stammen.",
     "Antwortformat NUR als JSON ohne Markdown, gemäß Schema:",
     schemaText
   ].join("\n");
@@ -411,6 +411,8 @@ const hasOpenAIKey = (): boolean =>
 
 export default async function handler(req: any, res: any) {
   const requestId = createRequestId();
+  const primaryModel = "gpt-5-mini-2025-08-07";
+  const fallbackModel = "gpt-5-mini";
 
   try {
     if (req.method !== "POST") {
@@ -446,45 +448,69 @@ export default async function handler(req: any, res: any) {
     const timeout = setTimeout(() => controller.abort(), 30_000);
 
     let rawModelOutput = "";
-    const openAiRequest = {
-      model: "gpt-5.2-mini",
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: user }
-      ],
-      temperature: 0,
-      max_completion_tokens: 700,
-      response_format: { type: "json_object" }
-    } as const;
+    let usedModel = primaryModel;
+    const buildRequest = (model: string) =>
+      ({
+        model,
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: user }
+        ],
+        temperature: 0,
+        max_completion_tokens: 700,
+        response_format: { type: "json_object" }
+      }) as const;
 
-    try {
-      const completion = await openai.chat.completions.create(openAiRequest, {
+    const tryCompletion = async (model: string) => {
+      const completion = await openai.chat.completions.create(buildRequest(model), {
         signal: controller.signal
       });
-      rawModelOutput = completion.choices?.[0]?.message?.content ?? "";
-    } catch (error: any) {
-      const status = typeof error?.status === "number" ? error.status : undefined;
-      const message = error instanceof Error ? error.message : "OpenAI call failed";
-      console.error("[deviation-scan] openai failure", {
+      return completion.choices?.[0]?.message?.content ?? "";
+    };
+
+    try {
+      rawModelOutput = await tryCompletion(primaryModel);
+    } catch (primaryError: any) {
+      const status = typeof primaryError?.status === "number" ? primaryError.status : undefined;
+      const message = primaryError instanceof Error ? primaryError.message : "OpenAI call failed";
+      console.error("[deviation-scan] primary openai failure", {
         requestId,
         status,
         message,
-        stack: error?.stack
+        stack: primaryError?.stack,
+        model: primaryModel
       });
-      logError(requestId, error, "OpenAI call failed");
-      return sendJson(res, 502, {
-        ok: false,
-        error: "OpenAI call failed",
-        requestId,
-        details: status ? `${status} ${message}` : message,
-        debug: {
-          modelInput: { system, user },
-          modelOutput: rawModelOutput.slice(0, 2000),
-          status,
-          message,
-          stack: error?.stack
-        }
-      });
+      try {
+        usedModel = fallbackModel;
+        rawModelOutput = await tryCompletion(fallbackModel);
+      } catch (fallbackError: any) {
+        clearTimeout(timeout);
+        const fallbackStatus = typeof fallbackError?.status === "number" ? fallbackError.status : undefined;
+        const fallbackMessage =
+          fallbackError instanceof Error ? fallbackError.message : "OpenAI call failed";
+        console.error("[deviation-scan] fallback openai failure", {
+          requestId,
+          status: fallbackStatus,
+          message: fallbackMessage,
+          stack: fallbackError?.stack,
+          model: fallbackModel
+        });
+        logError(requestId, fallbackError, "OpenAI call failed");
+        return sendJson(res, 502, {
+          ok: false,
+          error: "OpenAI call failed",
+          requestId,
+          details: fallbackStatus ? `${fallbackStatus} ${fallbackMessage}` : fallbackMessage,
+          debug: {
+            modelInput: { system, user },
+            modelOutput: rawModelOutput.slice(0, 2000),
+            status: fallbackStatus,
+            message: fallbackMessage,
+            stack: fallbackError?.stack,
+            triedModels: [primaryModel, fallbackModel]
+          }
+        });
+      }
     } finally {
       clearTimeout(timeout);
     }
@@ -533,7 +559,7 @@ export default async function handler(req: any, res: any) {
     return sendJson(res, 200, {
       ok: true,
       requestId,
-      result: validatedModel.value,
+      result: { ...validatedModel.value, model: usedModel as DeviationScanModelResult["model"] },
       debug: {
         modelInput: { system, user },
         modelOutput: rawModelOutput.slice(0, 2000)

@@ -186,7 +186,7 @@ export const DeviationAnalysisScreen = ({
           experimentName: experiment.name ?? experiment.experimentId,
           status: "pending",
           findings: [],
-          model: "gpt-5.2-mini"
+          model: "gpt-5-mini-2025-08-07"
         };
         return acc;
       },
@@ -300,6 +300,10 @@ export const DeviationAnalysisScreen = ({
         }
 
         const findings = Array.isArray(data.result?.findings) ? data.result.findings : [];
+        const modelUsed =
+          typeof data.result?.model === "string"
+            ? (data.result.model as ExperimentDeviationResult["model"])
+            : ("gpt-5-mini-2025-08-07" as ExperimentDeviationResult["model"]);
         const hasFindings = findings.length > 0;
 
         setResults((prev) => ({
@@ -308,7 +312,7 @@ export const DeviationAnalysisScreen = ({
             ...prev[context.experimentId],
             status: hasFindings ? "findings" : "no_findings",
             findings,
-            model: "gpt-5.2-mini",
+            model: modelUsed,
             requestId
           }
         }));
@@ -376,12 +380,13 @@ export const DeviationAnalysisScreen = ({
       <header className="section-intro">
         <p className="eyebrow">Schritt 3 · Abweichungen (LLM)</p>
         <h2>Kommentarspalten scannen und Abweichungen markieren</h2>
-        <p className="muted">
-          Wähle die Kommentar- und Kontextspalten, starte dann den LLM-Scan. Pro Experiment wird ein
-          Aufruf an <strong>GPT-5.2 mini</strong> gesendet. Ergebnis: klare Ontologie-Labels und die
-          Original-Textstelle – ohne Bewertung oder Korrekturvorschlag.
-        </p>
-        <div className="llm-chip">LLM · GPT-5.2 mini · 1 Call/Experiment · kein Fallback</div>
+          <p className="muted">
+            Wähle die Kommentar- und Kontextspalten, starte dann den LLM-Scan. Pro Experiment wird ein
+            Aufruf an <strong>GPT-5 mini (Snapshot 2025-08-07)</strong> gesendet; wenn nötig fällt die Analyse auf
+            <strong> gpt-5-mini</strong> zurück. Ergebnis: klare Ontologie-Labels und die Original-Textstelle – ohne
+            Bewertung oder Korrekturvorschlag.
+          </p>
+        <div className="llm-chip">LLM · GPT-5 mini-2025-08-07 · Fallback: gpt-5-mini · 1 Call/Experiment</div>
       </header>
 
       <div className="deviation-grid">
@@ -514,7 +519,7 @@ export const DeviationAnalysisScreen = ({
           </div>
           <div className="summary-pill muted">
             <span className="label">LLM</span>
-            <strong>GPT-5.2 mini</strong>
+            <strong>GPT-5 mini (Snapshot)</strong>
           </div>
         </div>
 
@@ -612,7 +617,7 @@ export const DeviationAnalysisScreen = ({
             {result.status === "running" && <p className="muted">LLM liest Kommentare …</p>}
 
             <footer className="experiment-card-footer">
-              <span className="meta">LLM: GPT-5.2 mini</span>
+              <span className="meta">LLM: {result.model ?? "gpt-5-mini-2025-08-07"}</span>
               {result.requestId && <span className="meta">Request: {result.requestId}</span>}
             </footer>
           </article>
