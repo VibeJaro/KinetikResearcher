@@ -1,4 +1,9 @@
 
+## 2026-01-10
+- Neuer Schritt „Abweichungen“ ersetzt Grouping: Nutzer:innen wählen Kommentar- und Parameter-Spalten, das LLM scannt jede Messung sequentiell nach 10 festen Auffälligkeits-Kategorien und zeigt Textstellen plus Herkunftsspalten.
+- UI ergänzt um Ontologie-Badges, Filter („nur ohne Auffälligkeiten“, „mit Dosierabweichung“) und kompakte Ergebnis-Kacheln pro Experiment.
+- OpenAI-API-Route `/api/deviation-analysis` hinzugefügt, inklusive JSON-Schema-Validierung und Ontologie-Prompt; Mapping speichert Meta-Spalten, damit Kommentare/Parameter pro Experiment verfügbar sind.
+
 ## 2026-01-02
 - Validierungstexte durchgehend auf Deutsch gestellt und Status/Schweregrade klar benannt.
 - Serien-Check um Mini-Plots (Punkte + schwarze Linie) ergänzt, um Plausibilität pro Reihe sofort zu sehen.

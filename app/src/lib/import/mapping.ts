@@ -179,8 +179,37 @@ export const applyMappingToDataset = ({
 
   const experiments: Experiment[] = [];
   let pointCount = 0;
+  const structuralIndices = new Set<number>([
+    timeIndex,
+    experimentIndex,
+    ...selection.valueColumnIndices
+  ]);
 
   Array.from(groupMap.entries()).forEach(([groupName, rows]) => {
+    const metadataColumns = headers
+      .map((name, index) => ({ name, index }))
+      .filter((entry) => !structuralIndices.has(entry.index));
+
+    const metadata: Record<string, string | number | null> = {};
+
+    metadataColumns.forEach(({ name, index }) => {
+      const header = name ?? `Column ${index + 1}`;
+      const firstValue = rows
+        .map((row) => row[index])
+        .find((cell) => {
+          if (cell === null) return false;
+          if (typeof cell === "string") return cell.trim().length > 0;
+          return true;
+        });
+      if (firstValue === undefined) {
+        metadata[header] = null;
+      } else if (typeof firstValue === "string") {
+        metadata[header] = firstValue;
+      } else {
+        metadata[header] = firstValue;
+      }
+    });
+
     const series: Series[] = selection.valueColumnIndices.map((valueIndex) => {
       const time: number[] = [];
       const y: number[] = [];
@@ -226,6 +255,7 @@ export const applyMappingToDataset = ({
         name: groupName,
         series,
         metaRaw: {
+          ...metadata,
           timeHeader: headers[timeIndex] ?? null,
           valueHeaders: valueHeaders.join(", "),
           experimentHeader: experimentIndex === -1 ? null : headers[experimentIndex] ?? null,

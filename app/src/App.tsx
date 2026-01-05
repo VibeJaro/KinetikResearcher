@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
-import { GroupingScreen } from "./components/grouping/GroupingScreen";
+import { DeviationScreen } from "./components/deviations/DeviationScreen";
 import { MappingPanel } from "./components/import/MappingPanel";
 import { ValidationScreen } from "./components/validation/ValidationScreen";
 import { buildColumnSummaries } from "./lib/columnScan/buildColumnSummaries";
@@ -19,12 +19,12 @@ import type { ColumnScanPayload } from "./types/columnScan";
 
 // UI reference draft: design/kinetik-researcher.design-draft.html
 
-type StepKey = "import" | "validation" | "grouping" | "modeling" | "report";
+type StepKey = "import" | "validation" | "deviations" | "modeling" | "report";
 
 const steps: { key: StepKey; label: string; description: string }[] = [
   { key: "import", label: "Import", description: "Rohdaten laden & zuweisen" },
   { key: "validation", label: "Validierung", description: "Schneller Daten-Check" },
-  { key: "grouping", label: "Grouping", description: "Experimente bündeln" },
+  { key: "deviations", label: "Abweichungen", description: "LLM-Scan Kommentarspalten" },
   { key: "modeling", label: "Modeling", description: "Fit & Charts" },
   { key: "report", label: "Report", description: "Zusammenfassung" }
 ];
@@ -340,7 +340,7 @@ function App() {
     if (!importReport || importReport.status === "broken") {
       return;
     }
-    setActiveStep("grouping");
+    setActiveStep("deviations");
   };
 
   const handleContinueToValidation = () => {
@@ -350,7 +350,7 @@ function App() {
   const isStepEnabled = (stepKey: StepKey): boolean => {
     if (stepKey === "import") return true;
     if (stepKey === "validation") return Boolean(mappingSuccess);
-    if (stepKey === "grouping") return Boolean(importedExperiments.length);
+    if (stepKey === "deviations") return Boolean(importedExperiments.length);
     return Boolean(importedExperiments.length);
   };
 
@@ -502,12 +502,9 @@ function App() {
       );
     }
 
-    if (activeStep === "grouping") {
+    if (activeStep === "deviations") {
       return (
-        <GroupingScreen
-          experiments={importedExperiments}
-          columnScanPayload={columnScanPayload}
-        />
+        <DeviationScreen experiments={importedExperiments} columnScanPayload={columnScanPayload} />
       );
     }
 

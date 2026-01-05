@@ -35,9 +35,9 @@ npm test
 Die Import-Logik nutzt einen Mapping-Wizard (siehe `app/src/lib/import/mapping.ts`) und eine Validierung mit klaren Hinweisen und Prioritäten (siehe `app/src/lib/import/validation.ts`). Weitere Feature-spezifische Ordner liegen unter `app/src/lib/` und `app/src/ui/` entlang der oben genannten Schritte.
 
 ### Abweichungsscan & Repräsentativitäts-Check (LLM-unterstützt)
-- Nutzer:innen wählen Kommentarspalten; das LLM markiert Auffälligkeiten pro Experiment (Kategorien/Labels werden ergänzt).
+- Nutzer:innen wählen Kommentarspalten und relevante Parameter-Spalten. Das LLM liest pro Experiment die Kommentare, erkennt nur die 10 vorgegebenen Auffälligkeiten (ohne Bewertung) und nennt die Textstelle samt Herkunftsspalte.
 - Im Folgeschritt wählt der/die Nutzer:in Referenzspalten, das LLM gleicht Abweichungen dagegen ab und kennzeichnet Experimente als repräsentativ oder nicht (mit Rationale im Audit-Log).
-- Der bisherige Grouping-Schritt entfällt; UI und Navigation müssen die neuen Schritte sichtbar machen (Stepper ggf. anpassen).
+- Der bisherige Grouping-Schritt entfällt; UI und Navigation zeigen stattdessen den Abweichungsschritt mit Filteroptionen (z. B. „nur Versuche ohne Auffälligkeiten“ oder „mit Dosierabweichung“).
 
 ## LLM Column Scan (optional Helfer)
 - Serverless Route: `api/column-scan.ts` (Node runtime) ruft `gpt-5.2` über den OpenAI Node SDK auf und liefert validiertes JSON.
