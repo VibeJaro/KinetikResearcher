@@ -456,7 +456,6 @@ export default async function handler(req: any, res: any) {
           { role: "system", content: system },
           { role: "user", content: user }
         ],
-        temperature: 0,
         max_completion_tokens: 700,
         response_format: { type: "json_object" }
       }) as const;
