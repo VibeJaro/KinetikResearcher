@@ -456,7 +456,7 @@ export default async function handler(req: any, res: any) {
           { role: "system", content: system },
           { role: "user", content: user }
         ],
-        max_completion_tokens: 700,
+        max_completion_tokens: 1000,
         response_format: { type: "json_object" }
       }) as const;
 
