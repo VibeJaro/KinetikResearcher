@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
-import { GroupingScreen } from "./components/grouping/GroupingScreen";
+import { DeviationAnalysisScreen } from "./components/deviations/DeviationAnalysisScreen";
 import { MappingPanel } from "./components/import/MappingPanel";
 import { ValidationScreen } from "./components/validation/ValidationScreen";
-import { buildColumnSummaries } from "./lib/columnScan/buildColumnSummaries";
 import {
   applyMappingToDataset,
   normalizeMappingTable,
@@ -15,16 +14,26 @@ import { parseFile } from "./lib/import/parseFile";
 import type { AuditEntry, Dataset, RawTable } from "./lib/import/types";
 import type { ValidationReport } from "./lib/import/validation";
 import { generateImportValidationReport } from "./lib/import/validation";
-import type { ColumnScanPayload } from "./types/columnScan";
 
 // UI reference draft: design/kinetik-researcher.design-draft.html
 
-type StepKey = "import" | "validation" | "grouping" | "modeling" | "report";
+type StepKey =
+  | "import"
+  | "validation"
+  | "deviations"
+  | "representativity"
+  | "modeling"
+  | "report";
 
 const steps: { key: StepKey; label: string; description: string }[] = [
   { key: "import", label: "Import", description: "Rohdaten laden & zuweisen" },
   { key: "validation", label: "Validierung", description: "Schneller Daten-Check" },
-  { key: "grouping", label: "Grouping", description: "Experimente bündeln" },
+  { key: "deviations", label: "Abweichungen", description: "LLM-Scan Kommentarspalten" },
+  {
+    key: "representativity",
+    label: "Repräsentativität",
+    description: "Abgleich mit Referenzen"
+  },
   { key: "modeling", label: "Modeling", description: "Fit & Charts" },
   { key: "report", label: "Report", description: "Zusammenfassung" }
 ];
@@ -79,13 +88,10 @@ function App() {
   const [importReport, setImportReport] = useState<ValidationReport | null>(null);
   const mappingPanelRef = useRef<HTMLDivElement | null>(null);
 
-  const normalizedActiveTable = useMemo(
-    () =>
-      activeRawTable
-        ? normalizeMappingTable(activeRawTable, mappingSelection.firstRowIsHeader)
-        : null,
-    [activeRawTable, mappingSelection.firstRowIsHeader]
-  );
+  const normalizedActiveTable = useMemo<RawTable | null>(() => {
+    if (!activeRawTable) return null;
+    return normalizeMappingTable(activeRawTable, mappingSelection.firstRowIsHeader);
+  }, [activeRawTable, mappingSelection.firstRowIsHeader]);
   const importedExperiments = useMemo(
     () => dataset?.experiments ?? [],
     [dataset?.experiments]
@@ -94,45 +100,6 @@ function App() {
   useEffect(() => {
     setDataset((prev) => (prev ? { ...prev, audit: auditEntries } : prev));
   }, [auditEntries]);
-
-  const columnScanPayload = useMemo<ColumnScanPayload | null>(() => {
-    if (!normalizedActiveTable) {
-      return null;
-    }
-    const columnProfiles = buildColumnSummaries(normalizedActiveTable);
-    if (columnProfiles.length === 0) {
-      return null;
-    }
-    const getHeader = (index: number | null): string | null =>
-      index !== null && columnProfiles[index] ? columnProfiles[index].name : null;
-    const valueHeaders = mappingSelection.valueColumnIndices
-      .map((index) => columnProfiles[index]?.name)
-      .filter((header): header is string => typeof header === "string");
-
-    const structuralSummary = {
-      time: getHeader(mappingSelection.timeColumnIndex),
-      values: valueHeaders,
-      experiment: getHeader(mappingSelection.experimentColumnIndex)
-    };
-    const knownStructuralColumns = Array.from(
-      new Set(
-        [
-          structuralSummary.time,
-          structuralSummary.experiment,
-          ...structuralSummary.values
-        ].filter(
-          (value): value is string => typeof value === "string" && value.trim().length > 0
-        )
-      )
-    );
-
-    return {
-      columns: columnProfiles,
-      experimentCount: mappingStats?.experimentCount ?? null,
-      knownStructuralColumns,
-      structuralSummary
-    };
-  }, [mappingSelection, mappingStats, normalizedActiveTable]);
 
   useEffect(() => {
     if (!activeRawTable) {
@@ -340,7 +307,7 @@ function App() {
     if (!importReport || importReport.status === "broken") {
       return;
     }
-    setActiveStep("grouping");
+    setActiveStep("deviations");
   };
 
   const handleContinueToValidation = () => {
@@ -350,7 +317,8 @@ function App() {
   const isStepEnabled = (stepKey: StepKey): boolean => {
     if (stepKey === "import") return true;
     if (stepKey === "validation") return Boolean(mappingSuccess);
-    if (stepKey === "grouping") return Boolean(importedExperiments.length);
+    if (stepKey === "deviations") return Boolean(importReport && importReport.status !== "broken");
+    if (stepKey === "representativity") return Boolean(importedExperiments.length);
     return Boolean(importedExperiments.length);
   };
 
@@ -502,12 +470,26 @@ function App() {
       );
     }
 
-    if (activeStep === "grouping") {
+    if (activeStep === "deviations") {
       return (
-        <GroupingScreen
+        <DeviationAnalysisScreen
           experiments={importedExperiments}
-          columnScanPayload={columnScanPayload}
+          table={normalizedActiveTable}
+          mappingSelection={mappingSelection}
+          datasetName={dataset?.name ?? null}
         />
+      );
+    }
+
+    if (activeStep === "representativity") {
+      return (
+        <div className="placeholder-card">
+          <h3>Repräsentativitäts-Check</h3>
+          <p className="muted">
+            Nächster Schritt: Abweichungen mit Kernparametern abgleichen und Experimente markieren.
+            Dieser Abschnitt wird im Anschluss ergänzt.
+          </p>
+        </div>
       );
     }
 
