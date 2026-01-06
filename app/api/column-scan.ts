@@ -371,6 +371,7 @@ export default async function handler(req: any, res: any) {
     const timeout = setTimeout(() => controller.abort(), 25_000);
 
     let rawModelOutput = "";
+    let completionDebug: Record<string, unknown> | undefined;
     const openAiRequest = {
       model: "gpt-5.2",
       messages: [
@@ -392,6 +393,11 @@ export default async function handler(req: any, res: any) {
         { signal: controller.signal }
       );
       rawModelOutput = completion.choices?.[0]?.message?.content ?? "";
+      completionDebug = {
+        finishReason: completion.choices?.[0]?.finish_reason,
+        message: completion.choices?.[0]?.message,
+        usage: completion.usage
+      };
     } catch (error: any) {
       const status = typeof error?.status === "number" ? error.status : undefined;
       const message = error instanceof Error ? error.message : "OpenAI call failed";
@@ -412,7 +418,8 @@ export default async function handler(req: any, res: any) {
           modelOutput: rawModelOutput.slice(0, 2000),
           status,
           message,
-          stack: error?.stack
+          stack: error?.stack,
+          completion: completionDebug
         }
       });
     } finally {
@@ -436,7 +443,8 @@ export default async function handler(req: any, res: any) {
         modelOutputPreview: rawModelOutput.slice(0, 500),
         debug: {
           modelInput: { system, user },
-          modelOutput: rawModelOutput.slice(0, 2000)
+          modelOutput: rawModelOutput.slice(0, 2000),
+          completion: completionDebug
         }
       });
     }
@@ -455,7 +463,8 @@ export default async function handler(req: any, res: any) {
         modelOutputPreview: rawModelOutput.slice(0, 500),
         debug: {
           modelInput: { system, user },
-          modelOutput: rawModelOutput.slice(0, 2000)
+          modelOutput: rawModelOutput.slice(0, 2000),
+          completion: completionDebug
         }
       });
     }
@@ -471,7 +480,8 @@ export default async function handler(req: any, res: any) {
       result: validatedModel.value,
       debug: {
         modelInput: { system, user },
-        modelOutput: rawModelOutput.slice(0, 2000)
+        modelOutput: rawModelOutput.slice(0, 2000),
+        completion: completionDebug
       }
     });
   } catch (error) {
