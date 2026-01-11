@@ -8,7 +8,7 @@ Ein geführter Kinetik-Assistent für Chemiker:innen und Ingenieur:innen, die sc
 - **Validierung auf Deutsch**: Serien-Kacheln mit Mini-Plots (Punkte + Linie), klare Kurztexte und Handlungsempfehlungen, damit auch nicht-expertische Nutzer:innen schnell entscheiden können.
 - **Auditierbar**: Jede Annahme und Antwort landet im Audit-Log, ohne die vorhandenen Funktionen einzuschränken.
 - **Deterministischer Kern**: Fitting, Einheiten, Plots laufen als Code; LLM nur für Hinweise, Fragen, Textbausteine.
- - **LLM klar ausgewiesen**: Abweichungen werden bevorzugt mit GPT-5 mini (Snapshot 2025-08-07) erkannt; pro Experiment ein Aufruf, Fallback auf gpt-5-mini.
+- **LLM klar ausgewiesen**: Abweichungen und der Repräsentativitäts-Check laufen bevorzugt mit GPT-5 mini (Snapshot 2025-08-07); pro Experiment je ein Aufruf, Fallback auf gpt-5-mini.
 
 ## Design-Referenz
 Das App-Layout folgt dem UI-Design-Draft unter `design/kinetik-researcher.design-draft.html` (Design-Vertrag, kein Produktionscode). Öffne die Datei im Browser, um das neue End-to-End-UI zu sehen. Implementierungen in `app/` sollen die dortige Informationsarchitektur und Kerninteraktionen funktional widerspiegeln:
@@ -20,7 +20,7 @@ Das App-Layout folgt dem UI-Design-Draft unter `design/kinetik-researcher.design
 - **Import**: Drag-and-Drop Upload-Zone; danach Mapping-Card mit Dropdowns und CTA „Weiter zur Validierung“. Das UI wurde bereits auf das neue Draft-Layout gehoben (Header-Badge, horizontaler Stepper, Cards). Werte-Spalten lassen sich per Mehrfachauswahl im Dropdown setzen, die Replicate-Auswahl ist entfallen, und sobald eine Experiment-Spalte gewählt ist, zeigt die Vorschau direkt die ersten 20 Experimente (jeweils erste Zeile).
 - **Validation**: Serien-Kacheln mit Dauer/Point-Count, Mini-Plots (Punkte + Linie) für den Schnellcheck, deutschsprachige Hinweise (Status-Pill + Technische Details) und CTA-Leiste „Zurück/Weiter“ unten.
 - **Abweichungen (LLM)**: Neuer Schritt statt Grouping. Nutzer:innen wählen eine oder mehrere Kommentarspalten, das LLM liest die Einträge pro Experiment und markiert potenzielle Abweichungen (Kategorien folgen). Ergebnis: Abweichungs-Liste inkl. Herkunftsspalte.
-- **Repräsentativitäts-Check (LLM)**: Folgeschritt nach dem Abweichungsscan. Nutzer:innen wählen relevante Spalten (z.B. Zielparameter), das LLM gleicht die Abweichungen dagegen ab und zeigt, ob Experimente als repräsentativ gelten oder aussortiert werden sollten. Klare CTA-Leiste für „Zurück/Weiter“.
+- **Repräsentativitäts-Check (LLM)**: Folgeschritt nach dem Abweichungsscan. Nutzer:innen wählen Referenz- und Kontextspalten (z.B. Edukt, Temperatur + Kommentare), das LLM gleicht Inkonsistenzen ab, schlägt eine Fit-Empfehlung vor und ermöglicht eine Auswahl, welche Experimente für das Fitting vorgemerkt sind. Klare CTA-Leiste für „Zurück/Weiter“.
 - **Modeling**: Zweispaltig – links Fit-Parameter inkl. Arrhenius-Checkbox + R²-Summary, rechts Chart-Card mit Legende; Abschluss-CTA „Berechnen“.
 - **Report**: Zweispaltig – links Chat mit Quick-Replies und „Report Generieren“, rechts PDF-Preview mit Titelbar + Download-CTA.
 
@@ -37,7 +37,7 @@ Die Import-Logik nutzt einen Mapping-Wizard (siehe `app/src/lib/import/mapping.t
 
 ### Abweichungsscan & Repräsentativitäts-Check (LLM-unterstützt)
 - Nutzer:innen wählen Kommentarspalten; das LLM markiert Auffälligkeiten pro Experiment (Kategorien/Labels werden ergänzt). Die Analyse erfolgt bevorzugt via GPT-5 mini (Snapshot 2025-08-07), ein Call pro Experiment, mit Fallback auf gpt-5-mini.
-- Im Folgeschritt wählt der/die Nutzer:in Referenzspalten, das LLM gleicht Abweichungen dagegen ab und kennzeichnet Experimente als repräsentativ oder nicht (mit Rationale im Audit-Log).
+- Im Folgeschritt wählt der/die Nutzer:in Referenz- und Kontextspalten, das LLM gleicht Inkonsistenzen ab und liefert eine Fit-Empfehlung samt Kurzsummary. Experimente werden nicht automatisch ausgeschlossen, sondern können gezielt für das Fitting vorgemerkt werden.
 - Der bisherige Grouping-Schritt entfällt; UI und Navigation müssen die neuen Schritte sichtbar machen (Stepper ggf. anpassen).
 
 ### LLM-Abweichungsanalyse (Schritt 3)
@@ -78,6 +78,34 @@ Die Import-Logik nutzt einen Mapping-Wizard (siehe `app/src/lib/import/mapping.t
   ```
 - UI: sichtbare LLM-Kennzeichnung („LLM · GPT-5 mini-2025-08-07 · Fallback gpt-5-mini“), Filter „Nur Versuche mit Auffälligkeiten“ sowie Ontologie-Filter pro Kategorie.
 
+### LLM-Repräsentativitäts-Check (Schritt 4)
+- Auswahl: Referenzspalten (z.B. Edukt, Temperatur, Konzentration, Charge) und Kontext-/Kommentarspalten.
+- Verarbeitung: GPT-5 mini (Snapshot 2025-08-07; Fallback gpt-5-mini) vergleicht Referenzwerte mit Kontexttexten, erkennt Inkonsistenzen und gibt eine Fit-Empfehlung (good/review/caution).
+- Ausgabe (JSON-only, keine Ausschlussentscheidung):
+  ```json
+  {
+    "experimentId": "exp-123",
+    "experimentName": "Experiment A",
+    "model": "gpt-5-mini-2025-08-07" | "gpt-5-mini",
+    "status": "findings | no_findings",
+    "fitRecommendation": "good | review | caution",
+    "summary": "Kurztext für Reporting",
+    "findings": [
+      {
+        "category": "<one of the 6 ids>",
+        "snippet": "exakte Textstelle oder Referenzwert",
+        "sourceColumn": "Kommentar",
+        "note": "optional, kurz"
+      }
+    ],
+    "usedColumns": {
+      "reference": ["Edukt", "Temperatur"],
+      "context": ["Kommentar"]
+    },
+    "requestId": "req-abc"
+  }
+  ```
+
 ## LLM Column Scan (optional Helfer)
 - Serverless Route: `api/column-scan.ts` (Node runtime) ruft `gpt-5.2` über den OpenAI Node SDK auf und liefert validiertes JSON.
 - Env: `OPENAI_API_KEY` für lokalen Betrieb und Vercel.
@@ -89,3 +117,8 @@ Die Import-Logik nutzt einen Mapping-Wizard (siehe `app/src/lib/import/mapping.t
 - Route: `api/deviation-scan.ts` (Node runtime) ruft bevorzugt **gpt-5-mini-2025-08-07** auf; Fallback **gpt-5-mini**.
 - Request (POST `/api/deviation-scan`): `experimentId`, `experimentName`, `deviationColumns[{ column, snippets[] }]`, optionale `parameterColumns[{ column, values[] }]`.
 - Response (200): `{ ok: true, requestId, result: { experimentId, model: "gpt-5-mini-2025-08-07" | "gpt-5-mini", status, findings[] } }` oder Fehlerobjekt inkl. Debug-Prompt.
+
+### LLM Representativity Scan API
+- Route: `api/representativity-scan.ts` (Node runtime) ruft bevorzugt **gpt-5-mini-2025-08-07** auf; Fallback **gpt-5-mini**.
+- Request (POST `/api/representativity-scan`): `experimentId`, `experimentName`, `referenceColumns[{ column, values[] }]`, `contextColumns[{ column, snippets[] }]`.
+- Response (200): `{ ok: true, requestId, result: { experimentId, model: "gpt-5-mini-2025-08-07" | "gpt-5-mini", status, fitRecommendation, summary, findings[] } }` oder Fehlerobjekt inkl. Debug-Prompt.

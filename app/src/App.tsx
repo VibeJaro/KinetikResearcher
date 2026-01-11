@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 import { DeviationAnalysisScreen } from "./components/deviations/DeviationAnalysisScreen";
+import { RepresentativityScreen } from "./components/deviations/RepresentativityScreen";
 import { MappingPanel } from "./components/import/MappingPanel";
 import { ValidationScreen } from "./components/validation/ValidationScreen";
 import {
@@ -14,6 +15,7 @@ import { parseFile } from "./lib/import/parseFile";
 import type { AuditEntry, Dataset, RawTable } from "./lib/import/types";
 import type { ValidationReport } from "./lib/import/validation";
 import { generateImportValidationReport } from "./lib/import/validation";
+import type { ExperimentRepresentativityResult } from "./types/representativityAnalysis";
 
 // UI reference draft: design/kinetik-researcher.design-draft.html
 
@@ -86,6 +88,12 @@ function App() {
   const [lastAppliedSelection, setLastAppliedSelection] =
     useState<MappingSelection | null>(null);
   const [importReport, setImportReport] = useState<ValidationReport | null>(null);
+  const [representativityResults, setRepresentativityResults] = useState<
+    Record<string, ExperimentRepresentativityResult>
+  >({});
+  const [representativitySelection, setRepresentativitySelection] = useState<
+    Record<string, boolean>
+  >({});
   const mappingPanelRef = useRef<HTMLDivElement | null>(null);
 
   const normalizedActiveTable = useMemo<RawTable | null>(() => {
@@ -117,6 +125,8 @@ function App() {
     setMappingSuccessShown(false);
     setLastAppliedSelection(null);
     setImportReport(null);
+    setRepresentativityResults({});
+    setRepresentativitySelection({});
   }, [activeRawTable]);
 
   useEffect(() => {
@@ -483,13 +493,16 @@ function App() {
 
     if (activeStep === "representativity") {
       return (
-        <div className="placeholder-card">
-          <h3>Repräsentativitäts-Check</h3>
-          <p className="muted">
-            Nächster Schritt: Abweichungen mit Kernparametern abgleichen und Experimente markieren.
-            Dieser Abschnitt wird im Anschluss ergänzt.
-          </p>
-        </div>
+        <RepresentativityScreen
+          experiments={importedExperiments}
+          table={normalizedActiveTable}
+          mappingSelection={mappingSelection}
+          datasetName={dataset?.name ?? null}
+          results={representativityResults}
+          selection={representativitySelection}
+          onResultsChange={setRepresentativityResults}
+          onSelectionChange={setRepresentativitySelection}
+        />
       );
     }
 
