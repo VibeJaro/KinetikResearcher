@@ -43,6 +43,7 @@ Die Import-Logik nutzt einen Mapping-Wizard (siehe `app/src/lib/import/mapping.t
 ### LLM-Abweichungsanalyse (Schritt 3)
 - Auswahl: Kommentarspalten (potenzielle Abweichungen) und relevante Kontextspalten (z.B. Temperatur, Edukte, Additive, Lösemittel).
 - Verarbeitung: GPT-5 mini (Snapshot 2025-08-07; Fallback gpt-5-mini) liest pro Experiment die Kommentarspalten, klassifiziert höchstens in die folgenden 10 Ontologie-Kategorien (keine weitere erlaubt) und liefert die Original-Textstelle:
+- Leere Kommentarspalten: Wenn in den gewählten Kommentarspalten keine Textstellen vorhanden sind, wird der Lauf als „keine Auffälligkeiten“ markiert und es wird kein LLM-Aufruf ausgelöst.
   1. Apparatur- oder Anlagenprobleme
   2. Abweichender Dosier- oder Zugabemodus
   3. Temperatur- oder Druckinstabilität
