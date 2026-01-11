@@ -62,8 +62,8 @@ const MAX_VALUES_PER_COLUMN = 8;
 const MAX_SNIPPET_LENGTH = 320;
 const MAX_VALUE_LENGTH = 160;
 const MAX_FINDINGS = 10;
-const MAX_NOTE_LENGTH = 200;
-const MAX_SUMMARY_LENGTH = 280;
+const MAX_NOTE_LENGTH = 400;
+const MAX_SUMMARY_LENGTH = 600;
 
 const ontology = [
   {
