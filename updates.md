@@ -1,4 +1,8 @@
 
+## 2026-01-10
+- Abweichungsanalyse: Leere Kommentarspalten werden jetzt als „keine Auffälligkeiten“ behandelt, ohne Fehlermeldung oder LLM-Aufruf.
+- README ergänzt: Hinweis, dass leere Kommentarspalten keinen Fehler auslösen.
+
 ## 2026-02-24
 - Schritt 3 „Abweichungen“ ersetzt das frühere Grouping: Nutzer:innen wählen Kommentar- und Kontextspalten, der LLM-Scan (GPT-5 mini-2025-08-07 mit Fallback gpt-5-mini, 1 Call pro Experiment) weist Abweichungen den 10 Ontologie-Kategorien zu und zeigt die Original-Textstellen.
 - Neues UI mit LLM-Badge, Ontologie-Filter und Status-Pills (Warnungen, fehlerhafte Runs, saubere Experimente); JSON-Schema für Ergebnisse dokumentiert.

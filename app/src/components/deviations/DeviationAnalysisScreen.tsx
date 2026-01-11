@@ -246,9 +246,8 @@ export const DeviationAnalysisScreen = ({
           ...prev,
           [context.experimentId]: {
             ...prev[context.experimentId],
-            status: "error",
+            status: "no_findings",
             findings: [],
-            error: "Keine Textstellen in den gewählten Kommentarspalten gefunden.",
             usedColumns: {
               deviation: selectedDeviationColumns,
               parameters: selectedParameterColumns
