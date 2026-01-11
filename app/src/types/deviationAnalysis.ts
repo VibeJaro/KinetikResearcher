@@ -8,7 +8,10 @@ export type DeviationCategory =
   | "explicit_warning"
   | "workup_change"
   | "analytics_issue"
-  | "explicit_parameter_in_comment";
+  | "explicit_parameter_in_comment"
+  | "parameter_mismatch"
+  | "material_identity_mismatch"
+  | "condition_mismatch";
 
 export type DeviationFinding = {
   category: DeviationCategory;
@@ -24,7 +27,12 @@ export type ExperimentDeviationResult = {
   findings: DeviationFinding[];
   model: "gpt-5-mini-2025-08-07" | "gpt-5-mini";
   requestId?: string;
-  usedColumns?: { deviation: string[]; parameters: string[] };
+  usedColumns?: {
+    deviation?: string[];
+    parameters?: string[];
+    reference?: string[];
+    details?: string[];
+  };
   error?: string;
 };
 
@@ -107,6 +115,30 @@ export const deviationOntology: DeviationOntologyEntry[] = [
     description: "Stoffidentitäten, Mengen, Konzentrationen oder Bedingungen, die im Kommentar betont werden.",
     icon: "ℹ️",
     shortHint: "Parameter im Kommentar genannt"
+  },
+  {
+    id: "parameter_mismatch",
+    label: "Widersprüchliche Parameterangabe",
+    description:
+      "Kommentar oder Zusatzspalte nennt Werte, die den Tabellenparametern widersprechen (z.B. Temperatur, Druck).",
+    icon: "🧩",
+    shortHint: "Parameter widersprechen sich"
+  },
+  {
+    id: "material_identity_mismatch",
+    label: "Abweichende Stoffidentität oder Charge",
+    description:
+      "Kommentar nennt anderes Edukt, Mischung oder spezielle Charge, die nicht zur Spalte passt.",
+    icon: "🧬",
+    shortHint: "Stoff/Charge abweichend"
+  },
+  {
+    id: "condition_mismatch",
+    label: "Abweichende Reaktionsbedingungen",
+    description:
+      "Hinweise auf andere Bedingungen (z.B. Temperaturfenster, Druck, Lösemittel), die nicht mit den Spalten übereinstimmen.",
+    icon: "🌡️",
+    shortHint: "Bedingungen stimmen nicht"
   }
 ];
 
@@ -139,7 +171,9 @@ export const deviationResultSchema = {
       type: "object",
       properties: {
         deviation: { type: "array", items: { type: "string" } },
-        parameters: { type: "array", items: { type: "string" } }
+        parameters: { type: "array", items: { type: "string" } },
+        reference: { type: "array", items: { type: "string" } },
+        details: { type: "array", items: { type: "string" } }
       }
     },
     requestId: { type: "string" },

@@ -14,6 +14,7 @@ import { parseFile } from "./lib/import/parseFile";
 import type { AuditEntry, Dataset, RawTable } from "./lib/import/types";
 import type { ValidationReport } from "./lib/import/validation";
 import { generateImportValidationReport } from "./lib/import/validation";
+import type { FitDecision } from "./types/fitSelection";
 
 // UI reference draft: design/kinetik-researcher.design-draft.html
 
@@ -86,6 +87,7 @@ function App() {
   const [lastAppliedSelection, setLastAppliedSelection] =
     useState<MappingSelection | null>(null);
   const [importReport, setImportReport] = useState<ValidationReport | null>(null);
+  const [fitSelection, setFitSelection] = useState<Record<string, FitDecision>>({});
   const mappingPanelRef = useRef<HTMLDivElement | null>(null);
 
   const normalizedActiveTable = useMemo<RawTable | null>(() => {
@@ -96,6 +98,22 @@ function App() {
     () => dataset?.experiments ?? [],
     [dataset?.experiments]
   );
+
+  useEffect(() => {
+    if (importedExperiments.length === 0) return;
+    setFitSelection((prev) => {
+      const next = { ...prev };
+      importedExperiments.forEach((experiment) => {
+        if (!next[experiment.experimentId]) {
+          next[experiment.experimentId] = {
+            include: true,
+            note: ""
+          };
+        }
+      });
+      return next;
+    });
+  }, [importedExperiments]);
 
   useEffect(() => {
     setDataset((prev) => (prev ? { ...prev, audit: auditEntries } : prev));
@@ -218,6 +236,7 @@ function App() {
     setImportError(null);
     setImportReport(null);
     setDataset(null);
+    setFitSelection({});
     setRawTables([]);
     setActiveRawTable(null);
     setImportFileName(null);
@@ -235,6 +254,22 @@ function App() {
     setMappingSuccess(null);
     setMappingSuccessShown(false);
     setLastAppliedSelection(null);
+  };
+
+  const handleFitSelectionChange = (experimentId: string, next: FitDecision) => {
+    setFitSelection((prev) => ({
+      ...prev,
+      [experimentId]: next
+    }));
+    setAuditEntries((prev) => [
+      createAuditEntry("FIT_SELECTION_UPDATED", {
+        experimentId,
+        include: next.include,
+        note: next.note,
+        updatedAt: next.updatedAt ?? new Date().toISOString()
+      }),
+      ...prev
+    ]);
   };
 
   const handleSheetChange = (sheetName: string) => {
@@ -477,6 +512,8 @@ function App() {
           table={normalizedActiveTable}
           mappingSelection={mappingSelection}
           datasetName={dataset?.name ?? null}
+          fitSelection={fitSelection}
+          onFitSelectionChange={handleFitSelectionChange}
         />
       );
     }

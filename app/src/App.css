@@ -628,6 +628,19 @@
   gap: 16px;
 }
 
+.scan-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.section-header {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
 .llm-chip {
   display: inline-flex;
   align-items: center;
@@ -799,6 +812,13 @@
   gap: 10px;
 }
 
+.status-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-end;
+}
+
 .status-badge {
   padding: 6px 10px;
   border-radius: 12px;
@@ -838,6 +858,24 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.scan-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 4px 0;
+}
+
+.scan-block + .scan-block {
+  border-top: 1px dashed #e2e8f0;
+  padding-top: 12px;
+}
+
+.scan-title {
+  margin: 0;
+  font-weight: 700;
+  color: #0f172a;
 }
 
 .finding-card {
@@ -881,6 +919,38 @@
   gap: 8px;
   padding-top: 8px;
   border-top: 1px solid #e2e8f0;
+}
+
+.scan-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fit-decision {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.fit-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.fit-note {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
 }
 
 .placeholder-card {

@@ -1,4 +1,10 @@
 
+## 2026-03-05
+- Schritt 3 erweitert: zusätzlicher LLM-Spalten-Abgleich pro Experiment (Referenz- vs. Hinweisspalten) erkennt Widersprüche wie abweichende Edukte, Chargen oder Bedingungen.
+- UI ergänzt: eigener Abschnitt für den Spalten-Abgleich, getrennte Status-Badges je Scan und Fit-Auswahl inkl. Notiz für den Report.
+- Neue Ontologie-Kategorien für widersprüchliche Parameter, abweichende Stoffidentität/Charge und abweichende Bedingungen ergänzt.
+- Serverless-Route `api/deviation-consistency.ts` ergänzt, inkl. GPT-5 mini (Snapshot 2025-08-07) mit Fallback auf gpt-5-mini.
+
 ## 2026-01-10
 - Abweichungsanalyse: Leere Kommentarspalten werden jetzt als „keine Auffälligkeiten“ behandelt, ohne Fehlermeldung oder LLM-Aufruf.
 - README ergänzt: Hinweis, dass leere Kommentarspalten keinen Fehler auslösen.

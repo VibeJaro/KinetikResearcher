@@ -5,24 +5,24 @@ export const config = {
   runtime: "nodejs"
 };
 
-type ColumnEvidence = {
-  column: string;
-  snippets: string[];
-};
-
-type ParameterEvidence = {
+type ReferenceEvidence = {
   column: string;
   values: string[];
 };
 
-type DeviationScanRequest = {
-  experimentId: string;
-  experimentName?: string;
-  deviationColumns: ColumnEvidence[];
-  parameterColumns?: ParameterEvidence[];
+type DetailEvidence = {
+  column: string;
+  snippets: string[];
 };
 
-type DeviationFinding = {
+type ConsistencyScanRequest = {
+  experimentId: string;
+  experimentName?: string;
+  referenceColumns: ReferenceEvidence[];
+  detailColumns: DetailEvidence[];
+};
+
+type ConsistencyFinding = {
   category:
     | "apparatus_issue"
     | "dosing_mode_change"
@@ -32,29 +32,29 @@ type DeviationFinding = {
     | "unexpected_event"
     | "explicit_warning"
     | "workup_change"
-  | "analytics_issue"
-  | "explicit_parameter_in_comment"
-  | "parameter_mismatch"
-  | "material_identity_mismatch"
-  | "condition_mismatch";
+    | "analytics_issue"
+    | "explicit_parameter_in_comment"
+    | "parameter_mismatch"
+    | "material_identity_mismatch"
+    | "condition_mismatch";
   snippet: string;
   sourceColumn: string;
   note?: string;
 };
 
-type DeviationScanModelResult = {
+type ConsistencyScanModelResult = {
   experimentId: string;
   experimentName?: string;
   model: "gpt-5-mini-2025-08-07" | "gpt-5-mini";
   status: "no_findings" | "findings";
-  findings: DeviationFinding[];
+  findings: ConsistencyFinding[];
 };
 
 type ValidatedRequest = {
   experimentId: string;
   experimentName: string;
-  deviationColumns: ColumnEvidence[];
-  parameterColumns: ParameterEvidence[];
+  referenceColumns: ReferenceEvidence[];
+  detailColumns: DetailEvidence[];
 };
 
 type ValidationResult<T> =
@@ -213,7 +213,7 @@ const sanitizeSnippetArray = (
   maxLength: number
 ): ValidationResult<string[]> => {
   if (!Array.isArray(value)) {
-    return { ok: false, message: "Invalid snippets" };
+    return { ok: false, message: "Invalid entries" };
   }
   const sanitized: string[] = [];
   for (const entry of value) {
@@ -225,19 +225,47 @@ const sanitizeSnippetArray = (
   return { ok: true, value: sanitized };
 };
 
-const sanitizeColumns = (
+const sanitizeReferenceColumns = (
   value: unknown,
   maxItems: number,
   maxLength: number
-): ValidationResult<ColumnEvidence[]> => {
+): ValidationResult<ReferenceEvidence[]> => {
   if (!Array.isArray(value) || value.length === 0 || value.length > maxItems) {
-    return { ok: false, message: "Invalid column selection" };
+    return { ok: false, message: "Invalid reference columns" };
   }
 
-  const sanitized: ColumnEvidence[] = [];
+  const sanitized: ReferenceEvidence[] = [];
   for (const entry of value) {
     if (typeof entry !== "object" || entry === null) {
-      return { ok: false, message: "Invalid column selection" };
+      return { ok: false, message: "Invalid reference columns" };
+    }
+    const column = normalizeString((entry as any).column);
+    const valuesRaw = sanitizeSnippetArray(
+      (entry as any).values,
+      MAX_VALUES_PER_COLUMN,
+      maxLength
+    );
+    if (!column || !valuesRaw.ok) {
+      return { ok: false, message: "Invalid reference columns" };
+    }
+    sanitized.push({ column, values: valuesRaw.value });
+  }
+  return { ok: true, value: sanitized };
+};
+
+const sanitizeDetailColumns = (
+  value: unknown,
+  maxItems: number,
+  maxLength: number
+): ValidationResult<DetailEvidence[]> => {
+  if (!Array.isArray(value) || value.length === 0 || value.length > maxItems) {
+    return { ok: false, message: "Invalid detail columns" };
+  }
+
+  const sanitized: DetailEvidence[] = [];
+  for (const entry of value) {
+    if (typeof entry !== "object" || entry === null) {
+      return { ok: false, message: "Invalid detail columns" };
     }
     const column = normalizeString((entry as any).column);
     const snippetsRaw = sanitizeSnippetArray(
@@ -246,39 +274,9 @@ const sanitizeColumns = (
       maxLength
     );
     if (!column || !snippetsRaw.ok) {
-      return { ok: false, message: "Invalid column selection" };
+      return { ok: false, message: "Invalid detail columns" };
     }
     sanitized.push({ column, snippets: snippetsRaw.value });
-  }
-  return { ok: true, value: sanitized };
-};
-
-const sanitizeParameterColumns = (
-  value: unknown,
-  maxItems: number,
-  maxLength: number
-): ValidationResult<ParameterEvidence[]> => {
-  if (value === undefined) {
-    return { ok: true, value: [] };
-  }
-  if (!Array.isArray(value) || value.length > maxItems) {
-    return { ok: false, message: "Invalid parameter columns" };
-  }
-  const sanitized: ParameterEvidence[] = [];
-  for (const entry of value) {
-    if (typeof entry !== "object" || entry === null) {
-      return { ok: false, message: "Invalid parameter columns" };
-    }
-    const column = normalizeString((entry as any).column);
-    const values = sanitizeSnippetArray(
-      (entry as any).values,
-      MAX_VALUES_PER_COLUMN,
-      maxLength
-    );
-    if (!column || !values.ok) {
-      return { ok: false, message: "Invalid parameter columns" };
-    }
-    sanitized.push({ column, values: values.value });
   }
   return { ok: true, value: sanitized };
 };
@@ -292,17 +290,21 @@ const validateRequest = (body: unknown): ValidationResult<ValidatedRequest> => {
     return { ok: false, message: "Invalid request" };
   }
   const experimentName = normalizeString((body as any).experimentName) || experimentId;
-  const deviationColumns = sanitizeColumns((body as any).deviationColumns, MAX_COLUMNS, MAX_SNIPPET_LENGTH);
-  if (!deviationColumns.ok) {
-    return deviationColumns;
-  }
-  const parameterColumns = sanitizeParameterColumns(
-    (body as any).parameterColumns,
+  const referenceColumns = sanitizeReferenceColumns(
+    (body as any).referenceColumns,
     MAX_COLUMNS,
     MAX_VALUE_LENGTH
   );
-  if (!parameterColumns.ok) {
-    return parameterColumns;
+  if (!referenceColumns.ok) {
+    return referenceColumns;
+  }
+  const detailColumns = sanitizeDetailColumns(
+    (body as any).detailColumns,
+    MAX_COLUMNS,
+    MAX_SNIPPET_LENGTH
+  );
+  if (!detailColumns.ok) {
+    return detailColumns;
   }
 
   return {
@@ -310,13 +312,13 @@ const validateRequest = (body: unknown): ValidationResult<ValidatedRequest> => {
     value: {
       experimentId,
       experimentName,
-      deviationColumns: deviationColumns.value,
-      parameterColumns: parameterColumns.value
+      referenceColumns: referenceColumns.value,
+      detailColumns: detailColumns.value
     }
   };
 };
 
-const validateModelResult = (data: unknown): ValidationResult<DeviationScanModelResult> => {
+const validateModelResult = (data: unknown): ValidationResult<ConsistencyScanModelResult> => {
   if (typeof data !== "object" || data === null) {
     return { ok: false, message: "Invalid model output" };
   }
@@ -339,7 +341,7 @@ const validateModelResult = (data: unknown): ValidationResult<DeviationScanModel
   }
 
   const allowedCategories = ontology.map((item) => item.id);
-  const sanitizedFindings: DeviationFinding[] = [];
+  const sanitizedFindings: ConsistencyFinding[] = [];
   for (const entry of findings) {
     if (typeof entry !== "object" || entry === null) {
       return { ok: false, message: "Invalid model output" };
@@ -396,11 +398,12 @@ const buildPrompt = (payload: ValidatedRequest): { system: string; user: string 
 }`;
 
   const system = [
-    "Du bist ein Assistent, der Kommentare chemischer Experimente liest und nur Abweichungen klassifiziert.",
-    "Nutze ausschließlich diese 10 Ontologie-Kategorien und erfinde keine weiteren:",
+    "Du bist ein Assistent, der Inkonsistenzen zwischen Tabellenparametern und Kommentar-/Hinweisspalten erkennt.",
+    "Ziel: Abweichungen finden, wenn Zusatzspalten Hinweise auf andere Stoffe, Bedingungen oder Chargen geben.",
+    "Nutze ausschließlich diese Ontologie-Kategorien und erfinde keine weiteren:",
     ontologyText,
-    "Gib keine Bewertungen, keine Korrekturvorschläge und kein Urteil zur Datenqualität.",
-    "Identifiziere nur Textstellen aus den Kommentarspalten, auf denen die Entscheidung beruht.",
+    "Bewerte nicht, korrigiere nicht und gib keine Empfehlungen.",
+    "Zitiere die konkrete Textstelle aus den Detailspalten oder die betroffene Referenzspalte.",
     "Bevorzugtes Modell: gpt-5-mini-2025-08-07. Fallback: gpt-5-mini. Die Analyse muss von einem OpenAI-LLM stammen.",
     "Antwortformat NUR als JSON ohne Markdown, gemäß Schema:",
     schemaText
@@ -409,8 +412,8 @@ const buildPrompt = (payload: ValidatedRequest): { system: string; user: string 
   const user = JSON.stringify({
     experimentId: payload.experimentId,
     experimentName: payload.experimentName,
-    deviationColumns: payload.deviationColumns,
-    parameterColumns: payload.parameterColumns
+    referenceColumns: payload.referenceColumns,
+    detailColumns: payload.detailColumns
   });
 
   return { system, user };
@@ -421,7 +424,7 @@ const logError = (requestId: string, error: unknown, fallbackMessage: string) =>
     error instanceof Error
       ? { message: error.message, stack: error.stack }
       : { message: fallbackMessage, stack: undefined };
-  console.error("[deviation-scan] failure", { requestId, ...payload });
+  console.error("[deviation-consistency] failure", { requestId, ...payload });
 };
 
 const hasOpenAIKey = (): boolean =>
@@ -490,7 +493,7 @@ export default async function handler(req: any, res: any) {
     } catch (primaryError: any) {
       const status = typeof primaryError?.status === "number" ? primaryError.status : undefined;
       const message = primaryError instanceof Error ? primaryError.message : "OpenAI call failed";
-      console.error("[deviation-scan] primary openai failure", {
+      console.error("[deviation-consistency] primary openai failure", {
         requestId,
         status,
         message,
@@ -502,10 +505,11 @@ export default async function handler(req: any, res: any) {
         rawModelOutput = await tryCompletion(fallbackModel);
       } catch (fallbackError: any) {
         clearTimeout(timeout);
-        const fallbackStatus = typeof fallbackError?.status === "number" ? fallbackError.status : undefined;
+        const fallbackStatus =
+          typeof fallbackError?.status === "number" ? fallbackError.status : undefined;
         const fallbackMessage =
           fallbackError instanceof Error ? fallbackError.message : "OpenAI call failed";
-        console.error("[deviation-scan] fallback openai failure", {
+        console.error("[deviation-consistency] fallback openai failure", {
           requestId,
           status: fallbackStatus,
           message: fallbackMessage,
@@ -536,7 +540,7 @@ export default async function handler(req: any, res: any) {
     try {
       parsedModel = rawModelOutput ? JSON.parse(rawModelOutput) : null;
     } catch (error) {
-      console.error("[deviation-scan] model parse failure", {
+      console.error("[deviation-consistency] model parse failure", {
         requestId,
         preview: rawModelOutput.slice(0, 500)
       });
@@ -556,7 +560,7 @@ export default async function handler(req: any, res: any) {
 
     const validatedModel = validateModelResult(parsedModel);
     if (!validatedModel.ok) {
-      console.error("[deviation-scan] model validation failure", {
+      console.error("[deviation-consistency] model validation failure", {
         requestId,
         preview: rawModelOutput.slice(0, 500)
       });
@@ -576,7 +580,7 @@ export default async function handler(req: any, res: any) {
     return sendJson(res, 200, {
       ok: true,
       requestId,
-      result: { ...validatedModel.value, model: usedModel as DeviationScanModelResult["model"] },
+      result: { ...validatedModel.value, model: usedModel as ConsistencyScanModelResult["model"] },
       debug: {
         modelInput: { system, user },
         modelOutput: rawModelOutput.slice(0, 2000)
