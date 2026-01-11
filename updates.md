@@ -8,6 +8,11 @@
 - Neues UI mit LLM-Badge, Ontologie-Filter und Status-Pills (Warnungen, fehlerhafte Runs, saubere Experimente); JSON-Schema für Ergebnisse dokumentiert.
 - Serverless-Route `api/deviation-scan.ts` ergänzt: validiert Eingaben strikt, ruft bevorzugt gpt-5-mini-2025-08-07 (Fallback gpt-5-mini) auf und liefert strukturierte Findings inklusive Request-ID.
 
+## 2026-03-05
+- Repräsentativitäts-Check umgesetzt: zusätzlicher LLM-Call pro Experiment vergleicht Referenz- und Kontextspalten, markiert Inkonsistenzen und liefert eine Fit-Empfehlung plus Summary für den Report.
+- Neue UI mit Auswahl der Referenz-/Kontextspalten, Fit-Vormerkung je Experiment und Filter nach Kategorien.
+- Serverless-Route `api/representativity-scan.ts` ergänzt: validiert Eingaben strikt, ruft bevorzugt gpt-5-mini-2025-08-07 (Fallback gpt-5-mini) auf und liefert strukturierte Findings inklusive Fit-Empfehlung.
+
 ## 2026-01-02
 - Validierungstexte durchgehend auf Deutsch gestellt und Status/Schweregrade klar benannt.
 - Serien-Check um Mini-Plots (Punkte + schwarze Linie) ergänzt, um Plausibilität pro Reihe sofort zu sehen.
