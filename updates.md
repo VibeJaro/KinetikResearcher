@@ -1,4 +1,8 @@
 
+## 2026-03-12
+- Abweichungen und Repräsentativitäts-Check in einem Schritt vereint: einmalige Auswahl von Kommentar- und Parameterspalten, zwei LLM-Calls pro Experiment nacheinander und gemeinsame Ergebnis-Kachel inkl. Fit-Auswahl.
+- Ergebnis-Layout angepasst: Experimente füllen nun jeweils eine Zeile, Abweichungen und Repräsentativitäts-Resultate sind klar getrennt in einer Karte dargestellt.
+
 ## 2026-01-10
 - Abweichungsanalyse: Leere Kommentarspalten werden jetzt als „keine Auffälligkeiten“ behandelt, ohne Fehlermeldung oder LLM-Aufruf.
 - README ergänzt: Hinweis, dass leere Kommentarspalten keinen Fehler auslösen.

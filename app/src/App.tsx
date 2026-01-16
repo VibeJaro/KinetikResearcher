@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
-import { DeviationAnalysisScreen } from "./components/deviations/DeviationAnalysisScreen";
-import { RepresentativityScreen } from "./components/deviations/RepresentativityScreen";
+import { DeviationRepresentativityScreen } from "./components/deviations/DeviationRepresentativityScreen";
 import { MappingPanel } from "./components/import/MappingPanel";
 import { ValidationScreen } from "./components/validation/ValidationScreen";
 import {
@@ -23,18 +22,16 @@ type StepKey =
   | "import"
   | "validation"
   | "deviations"
-  | "representativity"
   | "modeling"
   | "report";
 
 const steps: { key: StepKey; label: string; description: string }[] = [
   { key: "import", label: "Import", description: "Rohdaten laden & zuweisen" },
   { key: "validation", label: "Validierung", description: "Schneller Daten-Check" },
-  { key: "deviations", label: "Abweichungen", description: "LLM-Scan Kommentarspalten" },
   {
-    key: "representativity",
-    label: "Repräsentativität",
-    description: "Abgleich mit Referenzen"
+    key: "deviations",
+    label: "Abweichungen & Repräsentativität",
+    description: "LLM-Scan + Fit-Auswahl"
   },
   { key: "modeling", label: "Modeling", description: "Fit & Charts" },
   { key: "report", label: "Report", description: "Zusammenfassung" }
@@ -328,7 +325,6 @@ function App() {
     if (stepKey === "import") return true;
     if (stepKey === "validation") return Boolean(mappingSuccess);
     if (stepKey === "deviations") return Boolean(importReport && importReport.status !== "broken");
-    if (stepKey === "representativity") return Boolean(importedExperiments.length);
     return Boolean(importedExperiments.length);
   };
 
@@ -482,18 +478,7 @@ function App() {
 
     if (activeStep === "deviations") {
       return (
-        <DeviationAnalysisScreen
-          experiments={importedExperiments}
-          table={normalizedActiveTable}
-          mappingSelection={mappingSelection}
-          datasetName={dataset?.name ?? null}
-        />
-      );
-    }
-
-    if (activeStep === "representativity") {
-      return (
-        <RepresentativityScreen
+        <DeviationRepresentativityScreen
           experiments={importedExperiments}
           table={normalizedActiveTable}
           mappingSelection={mappingSelection}

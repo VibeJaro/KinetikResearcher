@@ -628,12 +628,6 @@
   gap: 16px;
 }
 
-.representativity-screen {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
 .llm-chip {
   display: inline-flex;
   align-items: center;
@@ -647,13 +641,7 @@
   margin-top: 6px;
 }
 
-.deviation-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 16px;
-}
-
-.representativity-grid {
+.analysis-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 16px;
@@ -782,6 +770,13 @@
   flex-wrap: wrap;
 }
 
+.status-pair {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-end;
+}
+
 .recommendation-pill {
   padding: 6px 10px;
   border-radius: 999px;
@@ -837,7 +832,7 @@
 
 .results-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 14px;
 }
 
@@ -856,6 +851,36 @@
   justify-content: space-between;
   align-items: flex-start;
   gap: 10px;
+}
+
+.experiment-sections {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.experiment-section {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.experiment-section-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.experiment-section h5 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
 }
 
 .status-badge {
@@ -931,6 +956,15 @@
   background: #e0f2fe;
   color: #0ea5e9;
   border-color: #bae6fd;
+}
+
+.experiment-section-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed #cbd5e1;
 }
 
 .experiment-card-footer {

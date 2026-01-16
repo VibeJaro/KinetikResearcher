@@ -7,6 +7,6 @@ describe("App", () => {
     expect(screen.getByText("Kinetik Researcher")).toBeInTheDocument();
     expect(screen.getByText(/Projekt „Researcher Draft“/i)).toBeInTheDocument();
     expect(screen.getByText("Import")).toBeInTheDocument();
-    expect(screen.getByText("Abweichungen")).toBeInTheDocument();
+    expect(screen.getByText("Abweichungen & Repräsentativität")).toBeInTheDocument();
   });
 });
