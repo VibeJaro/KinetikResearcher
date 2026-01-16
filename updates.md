@@ -1,3 +1,7 @@
+## 2026-03-19
+- Modeling-Schritt neu gestaltet: Nutzer:innen ordnen Spalten den Rollen (Edukt, Produkt, Zwischenprodukt, Nebenprodukt) zu und definieren per einfacher Pfeil-Liste das Reaktionsnetzwerk inklusive Nebenpfaden.
+- Neue Guidance-Box mit automatischen Hinweisen und CTA-Leiste zur Bestätigung des Netzwerks ergänzt.
+
 ## 2026-03-12
 - Abweichungen und Repräsentativität zu einem kombinierten LLM-Schritt zusammengeführt: Kommentar- und Parameter-Spalten einmal wählen, pro Experiment laufen zwei LLM-Calls nacheinander.
 - Ergebnisansicht überarbeitet: Kacheln füllen eine ganze Zeile, zeigen beide LLM-Ergebnisse in getrennten Sektionen und lassen die Fit-Vormerkung direkt im selben Kachel-Kontext.

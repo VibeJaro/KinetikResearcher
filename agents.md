@@ -27,7 +27,7 @@ Eine App, die Projektchemiker:innen und Ingenieur:innen Schritt für Schritt dur
   - Import: Drag-and-Drop Upload-Zone, danach Mapping-Card mit Dropdowns und „Weiter zur Validierung“-CTA.
   - Validation: Checkliste mit Badge-Status (Laden/OK), KI-Analyse-Hinweisbox und CTA-Leiste „Zurück/Abschließen“ unten.
   - Abweichungen & Repräsentativität: Auswahl der Kommentar- und Parameter-Spalten einmalig; LLM scannt Kommentare und gleicht danach Parameter ab. Ergebnisse (Abweichungen, Inkonsistenzen, Fit-Empfehlung) pro Experiment in einer Kachel.
-  - Modeling: Zweispaltig (links Fit-Parameter inkl. Arrhenius-Checkbox + R²-Summary, rechts Chart-Card mit Legende), Abschluss-CTA „Berechnen“.
+  - Modeling: Reaktionsnetzwerk zuerst definieren (Spaltenrollen: Edukt/Produkt/Zwischen-/Nebenprodukt, einfache Pfeil-Definition für Nebenpfade), danach zweispaltig (links Fit-Parameter inkl. Arrhenius-Checkbox + R²-Summary, rechts Chart-Card mit Legende), Abschluss-CTA „Berechnen“.
   - Report: Zweispaltig (links Chat mit Quick-Replies und „Report Generieren“, rechts PDF-Preview mit Titelbar + Download-CTA).
 - Implementierungen in `app/` müssen diese Layouts und Kerninteraktionen funktional widerspiegeln; visuelle Feinheiten dürfen mit Framework-Styles umgesetzt werden.
 - Bei Abweichungen: Implementierung anpassen oder Draft bewusst aktualisieren. Wichtige UI-Entscheidungen als ADR dokumentieren (`/docs/adr`).
