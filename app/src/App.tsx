@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 import { DeviationAnalysisScreen } from "./components/deviations/DeviationAnalysisScreen";
-import { RepresentativityScreen } from "./components/deviations/RepresentativityScreen";
 import { MappingPanel } from "./components/import/MappingPanel";
 import { ValidationScreen } from "./components/validation/ValidationScreen";
 import {
@@ -15,7 +14,6 @@ import { parseFile } from "./lib/import/parseFile";
 import type { AuditEntry, Dataset, RawTable } from "./lib/import/types";
 import type { ValidationReport } from "./lib/import/validation";
 import { generateImportValidationReport } from "./lib/import/validation";
-import type { ExperimentRepresentativityResult } from "./types/representativityAnalysis";
 
 // UI reference draft: design/kinetik-researcher.design-draft.html
 
@@ -23,18 +21,16 @@ type StepKey =
   | "import"
   | "validation"
   | "deviations"
-  | "representativity"
   | "modeling"
   | "report";
 
 const steps: { key: StepKey; label: string; description: string }[] = [
   { key: "import", label: "Import", description: "Rohdaten laden & zuweisen" },
   { key: "validation", label: "Validierung", description: "Schneller Daten-Check" },
-  { key: "deviations", label: "Abweichungen", description: "LLM-Scan Kommentarspalten" },
   {
-    key: "representativity",
-    label: "Repräsentativität",
-    description: "Abgleich mit Referenzen"
+    key: "deviations",
+    label: "Abweichungen & Repräsentativität",
+    description: "Kommentar-Scan + Parameter-Abgleich"
   },
   { key: "modeling", label: "Modeling", description: "Fit & Charts" },
   { key: "report", label: "Report", description: "Zusammenfassung" }
@@ -88,12 +84,6 @@ function App() {
   const [lastAppliedSelection, setLastAppliedSelection] =
     useState<MappingSelection | null>(null);
   const [importReport, setImportReport] = useState<ValidationReport | null>(null);
-  const [representativityResults, setRepresentativityResults] = useState<
-    Record<string, ExperimentRepresentativityResult>
-  >({});
-  const [representativitySelection, setRepresentativitySelection] = useState<
-    Record<string, boolean>
-  >({});
   const mappingPanelRef = useRef<HTMLDivElement | null>(null);
 
   const normalizedActiveTable = useMemo<RawTable | null>(() => {
@@ -125,8 +115,6 @@ function App() {
     setMappingSuccessShown(false);
     setLastAppliedSelection(null);
     setImportReport(null);
-    setRepresentativityResults({});
-    setRepresentativitySelection({});
   }, [activeRawTable]);
 
   useEffect(() => {
@@ -328,7 +316,6 @@ function App() {
     if (stepKey === "import") return true;
     if (stepKey === "validation") return Boolean(mappingSuccess);
     if (stepKey === "deviations") return Boolean(importReport && importReport.status !== "broken");
-    if (stepKey === "representativity") return Boolean(importedExperiments.length);
     return Boolean(importedExperiments.length);
   };
 
@@ -487,21 +474,6 @@ function App() {
           table={normalizedActiveTable}
           mappingSelection={mappingSelection}
           datasetName={dataset?.name ?? null}
-        />
-      );
-    }
-
-    if (activeStep === "representativity") {
-      return (
-        <RepresentativityScreen
-          experiments={importedExperiments}
-          table={normalizedActiveTable}
-          mappingSelection={mappingSelection}
-          datasetName={dataset?.name ?? null}
-          results={representativityResults}
-          selection={representativitySelection}
-          onResultsChange={setRepresentativityResults}
-          onSelectionChange={setRepresentativitySelection}
         />
       );
     }
