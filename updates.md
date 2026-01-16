@@ -1,17 +1,20 @@
+## 2026-03-12
+- Abweichungen und Repräsentativität zu einem kombinierten LLM-Schritt zusammengeführt: Kommentar- und Parameter-Spalten einmal wählen, pro Experiment laufen zwei LLM-Calls nacheinander.
+- Ergebnisansicht überarbeitet: Kacheln füllen eine ganze Zeile, zeigen beide LLM-Ergebnisse in getrennten Sektionen und lassen die Fit-Vormerkung direkt im selben Kachel-Kontext.
 
-## 2026-01-10
-- Abweichungsanalyse: Leere Kommentarspalten werden jetzt als „keine Auffälligkeiten“ behandelt, ohne Fehlermeldung oder LLM-Aufruf.
-- README ergänzt: Hinweis, dass leere Kommentarspalten keinen Fehler auslösen.
+## 2026-03-05
+- Repräsentativitäts-Check umgesetzt: zusätzlicher LLM-Call pro Experiment vergleicht Referenz- und Kontextspalten, markiert Inkonsistenzen und liefert eine Fit-Empfehlung plus Summary für den Report.
+- Neue UI mit Auswahl der Referenz-/Kontextspalten, Fit-Vormerkung je Experiment und Filter nach Kategorien.
+- Serverless-Route `api/representativity-scan.ts` ergänzt: validiert Eingaben strikt, ruft bevorzugt gpt-5-mini-2025-08-07 (Fallback gpt-5-mini) auf und liefert strukturierte Findings inklusive Fit-Empfehlung.
 
 ## 2026-02-24
 - Schritt 3 „Abweichungen“ ersetzt das frühere Grouping: Nutzer:innen wählen Kommentar- und Kontextspalten, der LLM-Scan (GPT-5 mini-2025-08-07 mit Fallback gpt-5-mini, 1 Call pro Experiment) weist Abweichungen den 10 Ontologie-Kategorien zu und zeigt die Original-Textstellen.
 - Neues UI mit LLM-Badge, Ontologie-Filter und Status-Pills (Warnungen, fehlerhafte Runs, saubere Experimente); JSON-Schema für Ergebnisse dokumentiert.
 - Serverless-Route `api/deviation-scan.ts` ergänzt: validiert Eingaben strikt, ruft bevorzugt gpt-5-mini-2025-08-07 (Fallback gpt-5-mini) auf und liefert strukturierte Findings inklusive Request-ID.
 
-## 2026-03-05
-- Repräsentativitäts-Check umgesetzt: zusätzlicher LLM-Call pro Experiment vergleicht Referenz- und Kontextspalten, markiert Inkonsistenzen und liefert eine Fit-Empfehlung plus Summary für den Report.
-- Neue UI mit Auswahl der Referenz-/Kontextspalten, Fit-Vormerkung je Experiment und Filter nach Kategorien.
-- Serverless-Route `api/representativity-scan.ts` ergänzt: validiert Eingaben strikt, ruft bevorzugt gpt-5-mini-2025-08-07 (Fallback gpt-5-mini) auf und liefert strukturierte Findings inklusive Fit-Empfehlung.
+## 2026-01-10
+- Abweichungsanalyse: Leere Kommentarspalten werden jetzt als „keine Auffälligkeiten“ behandelt, ohne Fehlermeldung oder LLM-Aufruf.
+- README ergänzt: Hinweis, dass leere Kommentarspalten keinen Fehler auslösen.
 
 ## 2026-01-02
 - Validierungstexte durchgehend auf Deutsch gestellt und Status/Schweregrade klar benannt.

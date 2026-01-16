@@ -653,12 +653,6 @@
   gap: 16px;
 }
 
-.representativity-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 16px;
-}
-
 .selector-list {
   display: flex;
   flex-direction: column;
@@ -837,15 +831,16 @@
 
 .results-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 14px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
 }
 
 .experiment-card {
-  border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  padding: 14px;
+  border: 1px solid #cbd5f5;
+  border-radius: 16px;
+  padding: 16px;
   background: #ffffff;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -856,6 +851,44 @@
   justify-content: space-between;
   align-items: flex-start;
   gap: 10px;
+}
+
+.status-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-end;
+}
+
+.analysis-sections {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.analysis-section {
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 12px;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.analysis-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.analysis-section-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
 }
 
 .status-badge {
