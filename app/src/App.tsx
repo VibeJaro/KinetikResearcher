@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 import { DeviationAnalysisScreen } from "./components/deviations/DeviationAnalysisScreen";
 import { MappingPanel } from "./components/import/MappingPanel";
+import { ModelingScreen } from "./components/modeling/ModelingScreen";
 import { ValidationScreen } from "./components/validation/ValidationScreen";
 import {
   applyMappingToDataset,
@@ -476,6 +477,10 @@ function App() {
           datasetName={dataset?.name ?? null}
         />
       );
+    }
+
+    if (activeStep === "modeling") {
+      return <ModelingScreen />;
     }
 
     return (
