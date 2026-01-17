@@ -271,6 +271,16 @@
   background: #172554;
 }
 
+.btn-secondary {
+  background: #e0f2fe;
+  color: #0f172a;
+  border-color: #bae6fd;
+}
+
+.btn-secondary:hover {
+  background: #bae6fd;
+}
+
 .btn-ghost {
   background: #ffffff;
   border-color: #cbd5e1;
@@ -1032,6 +1042,133 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+
+.modeling-results-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.modeling-results-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.modeling-top-variants {
+  display: grid;
+  gap: 16px;
+}
+
+.modeling-variant-card {
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.variant-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.variant-header h4 {
+  margin: 4px 0;
+}
+
+.variant-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+  padding: 12px;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.variant-metrics span {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.variant-content {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.variant-equations ul,
+.variant-notes ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.variant-equations code {
+  font-size: 12px;
+  color: #0f172a;
+  background: #f1f5f9;
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+
+.variant-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.modeling-chart {
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.modeling-chart .chart-line {
+  fill: none;
+  stroke: #0f172a;
+  stroke-width: 2;
+}
+
+.modeling-chart .chart-line.fit {
+  stroke: #2563eb;
+}
+
+.modeling-variant-list .variant-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.variant-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+}
+
+.variant-title {
+  font-weight: 700;
+  margin: 0;
+}
+
+.variant-metrics-inline {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: #64748b;
+  text-align: right;
 }
 
 .role-list {
