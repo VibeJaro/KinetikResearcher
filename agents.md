@@ -41,6 +41,7 @@ Eine App, die Projektchemiker:innen und Ingenieur:innen Schritt für Schritt dur
 3) **Abweichungen & Repräsentativität (LLM)** – Nutzer:innen wählen Kommentar- und Parameter-Spalten einmal. Das LLM scannt pro Experiment erst Kommentare, dann den Parameter-Abgleich; Ergebnisse, Fit-Empfehlung und Herkunftsspalten landen im Audit-Log.
 4) **Reaktionsnetzwerk** – Rollen zuweisen (Edukt/Produkt/Zwischen-/Nebenprodukt), einfache Pfeil-Definition für Nebenpfade und klare Zuordnung der Hauptpfade.
 5) **Modeling/Fit** – verständliche Presets (z.B. “einfacher 1. Ordnung Fit”), Deaktivierung/Nebenpfade aktivieren, Parameter-Erklärungen, Ergebnis-Klartext; nutzt die in Schritt 3 getroffene Fit-Auswahl und zeigt echte Daten aus den ausgewählten Experimenten.
+   - Nach dem Start werden alle Varianten durchgerechnet; Top-Alternativen zeigen Gleichungen, Diagramme, Metriken und eine vollständige Variantenübersicht für maximale Transparenz.
 6) **Report/Export (LLM-unterstützt)** – LLM stellt Klarstellungsfragen, prüft Missverständnisse/Unsicherheiten und erzeugt einen ausführlichen Report inkl. Grafiken; Annahmen klar markieren.
 
 Diese Schritte müssen in der Navigation erkennbar und entlang des Drafts umgesetzt sein (kombinierter LLM-Schritt statt Doppel-Step).

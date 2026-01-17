@@ -16,9 +16,10 @@ import { parseFile } from "./lib/import/parseFile";
 import type { AuditEntry, Dataset, RawTable } from "./lib/import/types";
 import type { ValidationReport } from "./lib/import/validation";
 import { generateImportValidationReport } from "./lib/import/validation";
+import { runModeling } from "./lib/modeling/runModeling";
 import type { DeviationAnalysisState } from "./types/analysisState";
 import type { Experiment } from "./types/experiment";
-import type { ModelingOptions, ReactionNetworkState } from "./types/modeling";
+import type { ModelingOptions, ModelingRun, ReactionNetworkState } from "./types/modeling";
 
 // UI reference draft: design/kinetik-researcher.design-draft.html
 
@@ -39,7 +40,7 @@ const steps: { key: StepKey; label: string; description: string }[] = [
     description: "Kommentar-Scan + Parameter-Abgleich"
   },
   { key: "network", label: "Reaktionsnetzwerk", description: "Pfade & Rollen" },
-  { key: "modeling", label: "Modeling", description: "Fit vorbereiten" },
+  { key: "modeling", label: "Modeling", description: "Fit berechnen" },
   { key: "report", label: "Report", description: "Zusammenfassung" }
 ];
 
@@ -152,7 +153,7 @@ function App() {
   const [modelingOptions, setModelingOptions] = useState<ModelingOptions>(() =>
     createInitialModelingOptions()
   );
-  const [modelingPrepared, setModelingPrepared] = useState(false);
+  const [modelingRun, setModelingRun] = useState<ModelingRun | null>(null);
   const mappingPanelRef = useRef<HTMLDivElement | null>(null);
 
   const normalizedActiveTable = useMemo<RawTable | null>(() => {
@@ -242,7 +243,7 @@ function App() {
     setAnalysisState(createInitialAnalysisState([]));
     setReactionNetwork(createInitialNetworkState());
     setModelingOptions(createInitialModelingOptions());
-    setModelingPrepared(false);
+    setModelingRun(null);
     const uploadEntry = createAuditEntry("FILE_UPLOADED", {
       fileName: file.name,
       fileType: file.name.split(".").pop()?.toLowerCase()
@@ -309,7 +310,7 @@ function App() {
     setAnalysisState(createInitialAnalysisState([]));
     setReactionNetwork(createInitialNetworkState());
     setModelingOptions(createInitialModelingOptions());
-    setModelingPrepared(false);
+    setModelingRun(null);
   };
 
   const handleSheetChange = (sheetName: string) => {
@@ -328,7 +329,7 @@ function App() {
     setAnalysisState(createInitialAnalysisState([]));
     setReactionNetwork(createInitialNetworkState());
     setModelingOptions(createInitialModelingOptions());
-    setModelingPrepared(false);
+    setModelingRun(null);
   };
 
   const handleApplyMapping = () => {
@@ -375,7 +376,7 @@ function App() {
     setAnalysisState(createInitialAnalysisState(result.dataset.experiments));
     setReactionNetwork(createInitialNetworkState());
     setModelingOptions(createInitialModelingOptions());
-    setModelingPrepared(false);
+    setModelingRun(null);
   };
 
   const handleBackToMapping = () => {
@@ -403,7 +404,7 @@ function App() {
     if (stepKey === "deviations") return Boolean(importReport && importReport.status !== "broken");
     if (stepKey === "network") return Boolean(importedExperiments.length);
     if (stepKey === "modeling") return reactionNetwork.confirmed;
-    if (stepKey === "report") return modelingPrepared;
+    if (stepKey === "report") return Boolean(modelingRun);
     return false;
   };
 
@@ -576,7 +577,7 @@ function App() {
           networkState={reactionNetwork}
           onNetworkChange={(next) => {
             setReactionNetwork(next);
-            setModelingPrepared(false);
+            setModelingRun(null);
           }}
           onBack={() => setActiveStep("deviations")}
           onConfirm={() => {
@@ -586,7 +587,7 @@ function App() {
               confirmedAt: new Date().toISOString()
             }));
             setActiveStep("modeling");
-            setModelingPrepared(false);
+            setModelingRun(null);
           }}
         />
       );
@@ -599,13 +600,31 @@ function App() {
           analysisState={analysisState}
           networkState={reactionNetwork}
           options={modelingOptions}
+          modelingRun={modelingRun}
           onOptionsChange={(next) => {
             setModelingOptions(next);
-            setModelingPrepared(false);
+            setModelingRun(null);
+          }}
+          onRunModeling={() => {
+            const run = runModeling({
+              experiments: importedExperiments,
+              analysisState,
+              networkState: reactionNetwork,
+              options: modelingOptions
+            });
+            const modelingEntry = createAuditEntry("MODELING_RUN", {
+              runId: run.runId,
+              experimentCount: run.experimentCount,
+              seriesCount: run.seriesCount,
+              pointCount: run.pointCount,
+              variantCount: run.variants.length,
+              options: run.options
+            });
+            setAuditEntries((prev) => [modelingEntry, ...prev]);
+            setModelingRun(run);
           }}
           onBack={() => setActiveStep("network")}
           onContinue={() => {
-            setModelingPrepared(true);
             setActiveStep("report");
           }}
         />

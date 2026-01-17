@@ -271,6 +271,17 @@
   background: #172554;
 }
 
+.btn-secondary {
+  background: #e2e8f0;
+  color: #0f172a;
+  border-color: #cbd5e1;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+}
+
+.btn-secondary:hover {
+  background: #cbd5e1;
+}
+
 .btn-ghost {
   background: #ffffff;
   border-color: #cbd5e1;
@@ -1120,6 +1131,105 @@
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+.modeling-run-card .inline-callout {
+  border: 1px solid #bae6fd;
+  background: #eff6ff;
+  border-radius: 12px;
+  padding: 12px 14px;
+  color: #1e3a8a;
+}
+
+.modeling-results {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.variant-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.variant-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #ffffff;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.variant-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.variant-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: #0f172a;
+  text-align: right;
+}
+
+.modeling-chart {
+  width: 100%;
+  height: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.variant-equations ul,
+.variant-assumptions ul {
+  margin: 0;
+  padding-left: 18px;
+  color: #0f172a;
+}
+
+.variant-table {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.variant-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+}
+
+.variant-score-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: #0f172a;
+  justify-content: flex-end;
+}
+
+.calculation-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.calculation-grid ul {
+  margin: 0;
+  padding-left: 18px;
+  color: #0f172a;
 }
 
 .modeling-summary {

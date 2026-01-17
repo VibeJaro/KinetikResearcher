@@ -44,3 +44,41 @@ export type ModelingPlan = {
   options: ModelingOptions;
   notes: string[];
 };
+
+export type ModelingVariantScore = {
+  r2: number;
+  rmse: number;
+  aic: number;
+  bic: number;
+};
+
+export type ModelingChartSeries = {
+  time: number[];
+  observed: number[];
+  predicted: number[];
+};
+
+export type ModelingVariant = {
+  id: string;
+  name: string;
+  assumptions: string[];
+  equations: string[];
+  weighting: "gleich" | "zeitgewichtet";
+  score: ModelingVariantScore;
+  chart: ModelingChartSeries;
+};
+
+export type ModelingRun = {
+  runId: string;
+  startedAt: string;
+  completedAt: string;
+  options: ModelingOptions;
+  experimentIds: string[];
+  experimentCount: number;
+  seriesCount: number;
+  pointCount: number;
+  reactions: ReactionDefinition[];
+  variants: ModelingVariant[];
+  bestVariants: ModelingVariant[];
+  calculationNotes: string[];
+};

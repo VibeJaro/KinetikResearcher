@@ -1,7 +1,12 @@
 import { useMemo } from "react";
 import type { DeviationAnalysisState } from "../../types/analysisState";
 import type { Experiment } from "../../types/experiment";
-import type { ModelingOptions, ReactionNetworkState } from "../../types/modeling";
+import type {
+  ModelingOptions,
+  ModelingRun,
+  ModelingVariant,
+  ReactionNetworkState
+} from "../../types/modeling";
 import { buildModelingPlan } from "../../lib/modeling/buildModelingPlan";
 
 type ModelingScreenProps = {
@@ -9,7 +14,9 @@ type ModelingScreenProps = {
   analysisState: DeviationAnalysisState;
   networkState: ReactionNetworkState;
   options: ModelingOptions;
+  modelingRun: ModelingRun | null;
   onOptionsChange: (next: ModelingOptions) => void;
+  onRunModeling: () => void;
   onBack: () => void;
   onContinue: () => void;
 };
@@ -19,7 +26,9 @@ export const ModelingScreen = ({
   analysisState,
   networkState,
   options,
+  modelingRun,
   onOptionsChange,
+  onRunModeling,
   onBack,
   onContinue
 }: ModelingScreenProps) => {
@@ -75,6 +84,61 @@ export const ModelingScreen = ({
     () => buildModelingPlan(networkState, options),
     [networkState, options]
   );
+
+  const variantCount = modelingRun?.variants.length ?? 0;
+
+  const formatScore = (value: number) => value.toFixed(3);
+  const formatMetric = (value: number) => value.toFixed(2);
+
+  const ModelingVariantChart = ({ variant }: { variant: ModelingVariant }) => {
+    const viewWidth = 320;
+    const viewHeight = 140;
+    const padding = 16;
+    const points = variant.chart.time.map((t, index) => ({
+      x: t,
+      observed: variant.chart.observed[index],
+      predicted: variant.chart.predicted[index]
+    }));
+    const validPoints = points.filter(
+      (point) => Number.isFinite(point.x) && Number.isFinite(point.observed)
+    );
+
+    if (validPoints.length === 0) {
+      return <p className="muted">Keine numerischen Daten für die Vorschau.</p>;
+    }
+
+    const xMin = Math.min(...validPoints.map((p) => p.x));
+    const xMax = Math.max(...validPoints.map((p) => p.x));
+    const yValues = validPoints.flatMap((p) => [p.observed, p.predicted]);
+    const yMin = Math.min(...yValues);
+    const yMax = Math.max(...yValues);
+    const xRange = xMax - xMin || 1;
+    const yRange = yMax - yMin || 1;
+
+    const toSvgX = (x: number) =>
+      padding + ((x - xMin) / xRange) * (viewWidth - padding * 2);
+    const toSvgY = (y: number) =>
+      viewHeight - padding - ((y - yMin) / yRange) * (viewHeight - padding * 2);
+
+    const observedPath = validPoints
+      .map((point, index) => `${index === 0 ? "M" : "L"} ${toSvgX(point.x)} ${toSvgY(point.observed)}`)
+      .join(" ");
+    const predictedPath = validPoints
+      .map((point, index) => `${index === 0 ? "M" : "L"} ${toSvgX(point.x)} ${toSvgY(point.predicted)}`)
+      .join(" ");
+
+    return (
+      <svg
+        className="modeling-chart"
+        viewBox={`0 0 ${viewWidth} ${viewHeight}`}
+        role="img"
+        aria-label={`Diagramm für ${variant.name}`}
+      >
+        <path d={observedPath} fill="none" stroke="#0f172a" strokeWidth="2" />
+        <path d={predictedPath} fill="none" stroke="#38bdf8" strokeWidth="2" strokeDasharray="6 4" />
+      </svg>
+    );
+  };
 
   return (
     <div className="modeling-screen" aria-labelledby="modeling-fit-heading">
@@ -250,6 +314,159 @@ export const ModelingScreen = ({
         </div>
       </div>
 
+      {!modelingRun && (
+        <div className="card modeling-card modeling-run-card">
+          <div className="card-header">
+            <div>
+              <p className="eyebrow">3 · Modeling starten</p>
+              <h3>Alle Varianten durchrechnen</h3>
+              <p className="muted">
+                Sobald du startest, werden alle Modellvarianten mit den gewählten Annahmen
+                berechnet. Die besten Alternativen erscheinen direkt mit Gleichungen und Diagrammen.
+              </p>
+            </div>
+          </div>
+          <div className="card-body">
+            <div className="inline-callout">
+              <strong>Transparenz:</strong> Wir zeigen dir jede Variante, ihre Metriken und die
+              verwendeten Gleichungen. Keine versteckten Schritte.
+            </div>
+          </div>
+        </div>
+      )}
+
+      {modelingRun && (
+        <div className="modeling-results">
+          <div className="card modeling-card">
+            <div className="card-header align-center">
+              <div>
+                <p className="eyebrow">Ergebnis · Top-Varianten</p>
+                <h3>Beste Alternativen aus {variantCount} Varianten</h3>
+                <p className="muted">
+                  Die Varianten sind nach R² sortiert. Wähle die beste Basis für den Report.
+                </p>
+              </div>
+            </div>
+            <div className="card-body">
+              <div className="variant-grid">
+                {modelingRun.bestVariants.map((variant) => (
+                  <div key={variant.id} className="variant-card">
+                    <div className="variant-header">
+                      <div>
+                        <strong>{variant.name}</strong>
+                        <p className="muted">Gewichtung: {variant.weighting}</p>
+                      </div>
+                      <div className="variant-metrics">
+                        <span>R² {formatScore(variant.score.r2)}</span>
+                        <span>RMSE {formatScore(variant.score.rmse)}</span>
+                      </div>
+                    </div>
+                    <ModelingVariantChart variant={variant} />
+                    <div className="variant-equations">
+                      <h4>Gleichungen</h4>
+                      <ul>
+                        {variant.equations.map((equation) => (
+                          <li key={equation}>{equation}</li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div className="variant-assumptions">
+                      <h4>Annahmen</h4>
+                      <ul>
+                        {variant.assumptions.map((assumption) => (
+                          <li key={assumption}>{assumption}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="card modeling-card">
+            <div className="card-header">
+              <div>
+                <p className="eyebrow">Alle Varianten</p>
+                <h3>Vollständige Übersicht der Berechnungen</h3>
+                <p className="muted">
+                  Jede Variante mit Metriken für Transparenz und Vergleichbarkeit.
+                </p>
+              </div>
+            </div>
+            <div className="card-body">
+              <div className="variant-table">
+                {modelingRun.variants.map((variant) => (
+                  <div key={variant.id} className="variant-row">
+                    <div>
+                      <strong>{variant.name}</strong>
+                      <p className="muted">
+                        Gewichtung: {variant.weighting} · {variant.assumptions[0]}
+                      </p>
+                    </div>
+                    <div className="variant-score-row">
+                      <span>R² {formatScore(variant.score.r2)}</span>
+                      <span>RMSE {formatScore(variant.score.rmse)}</span>
+                      <span>AIC {formatMetric(variant.score.aic)}</span>
+                      <span>BIC {formatMetric(variant.score.bic)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="card modeling-card">
+            <div className="card-header">
+              <div>
+                <p className="eyebrow">Rechenlog</p>
+                <h3>Was genau berechnet wurde</h3>
+                <p className="muted">
+                  Zusammenfassung der Eingaben, Reaktionen und Berechnungszeitpunkte.
+                </p>
+              </div>
+            </div>
+            <div className="card-body">
+              <div className="calculation-grid">
+                <div>
+                  <h4>Berechnungsdetails</h4>
+                  <ul>
+                    <li>Start: {new Date(modelingRun.startedAt).toLocaleString("de-DE")}</li>
+                    <li>Ende: {new Date(modelingRun.completedAt).toLocaleString("de-DE")}</li>
+                    <li>Experimente: {modelingRun.experimentCount}</li>
+                    <li>Messreihen: {modelingRun.seriesCount}</li>
+                    <li>Datenpunkte: {modelingRun.pointCount}</li>
+                    <li>Varianten: {modelingRun.variants.length}</li>
+                  </ul>
+                </div>
+                <div>
+                  <h4>Reaktionsliste</h4>
+                  {modelingRun.reactions.length === 0 ? (
+                    <p className="muted">Keine Reaktionen hinterlegt.</p>
+                  ) : (
+                    <ul>
+                      {modelingRun.reactions.map((reaction) => (
+                        <li key={reaction.id}>
+                          {reaction.source} → {reaction.target} · {reaction.rateLaw}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+                <div>
+                  <h4>Modeling-Notizen</h4>
+                  <ul>
+                    {modelingRun.calculationNotes.map((note) => (
+                      <li key={note}>{note}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="modeling-footer">
         <div className="modeling-guidance">
           <h4>Fit-Check</h4>
@@ -264,11 +481,23 @@ export const ModelingScreen = ({
           </button>
           <button
             type="button"
+            className="btn btn-secondary"
+            disabled={
+              !networkState.confirmed ||
+              modelingPlan.reactions.length === 0 ||
+              selectedExperiments.length === 0
+            }
+            onClick={onRunModeling}
+          >
+            Modeling starten
+          </button>
+          <button
+            type="button"
             className="btn btn-primary"
-            disabled={!networkState.confirmed || modelingPlan.reactions.length === 0}
+            disabled={!modelingRun}
             onClick={onContinue}
           >
-            Fit vorbereiten
+            Zum Report
           </button>
         </div>
       </div>

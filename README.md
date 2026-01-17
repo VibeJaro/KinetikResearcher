@@ -8,6 +8,7 @@ Ein geführter Kinetik-Assistent für Chemiker:innen und Ingenieur:innen, die sc
 - **Validierung auf Deutsch**: Serien-Kacheln mit Mini-Plots (Punkte + Linie), klare Kurztexte und Handlungsempfehlungen, damit auch nicht-expertische Nutzer:innen schnell entscheiden können.
 - **Auditierbar**: Jede Annahme und Antwort landet im Audit-Log, ohne die vorhandenen Funktionen einzuschränken.
 - **Deterministischer Kern**: Fitting, Einheiten, Plots laufen als Code; LLM nur für Hinweise, Fragen, Textbausteine.
+- **Modeling mit Transparenz**: Varianten werden per Button berechnet; Top-Alternativen zeigen Gleichungen, Metriken und Diagramme sowie eine vollständige Varianten-Übersicht.
 - **LLM klar ausgewiesen**: Abweichungen und Repräsentativitäts-Check laufen nacheinander pro Experiment (zwei Calls). Bevorzugt GPT-5 mini (Snapshot 2025-08-07), Fallback auf gpt-5-mini.
 
 ## Design-Referenz
@@ -21,7 +22,7 @@ Das App-Layout folgt dem UI-Design-Draft unter `design/kinetik-researcher.design
 - **Validation**: Serien-Kacheln mit Dauer/Point-Count, Mini-Plots (Punkte + Linie) für den Schnellcheck, deutschsprachige Hinweise (Status-Pill + Technische Details) und CTA-Leiste „Zurück/Weiter“ unten.
 - **Abweichungen & Repräsentativität (LLM)**: Kombinierter Schritt. Nutzer:innen wählen Kommentar- und Parameter-Spalten einmal, das LLM scannt erst die Kommentare auf Abweichungen und führt danach den Abgleich gegen die Parameter durch. Ergebnis: Abweichungs-Liste, Inkonsistenzen, Fit-Empfehlung und Auswahl für den Fit – alles pro Experiment in einer Kachel.
 - **Reaktionsnetzwerk**: Rollen der Spalten (Edukt/Produkt/Zwischen-/Nebenprodukt) + einfache Netzwerk-Definition (Pfeile/Abzweige) auf Basis der in Schritt 3 ausgewählten Experimente; Fit-Auswahl und LLM-Ergebnisse bleiben beim Schrittwechsel erhalten.
-- **Modeling**: Modellannahmen ergänzen (z.B. Katalysator-Deaktivierung, unbekannte Nebenpfade) und Reaktionsliste als Fit-Grundlage zusammenstellen.
+- **Modeling**: Modellannahmen ergänzen (z.B. Katalysator-Deaktivierung, unbekannte Nebenpfade), per Button alle Varianten berechnen und Top-Alternativen inkl. Gleichungen/Diagrammen transparent vergleichen.
 - **Report**: Zweispaltig – links Chat mit Quick-Replies und „Report Generieren“, rechts PDF-Preview mit Titelbar + Download-CTA.
 
 ## Dev-Setup
