@@ -3,6 +3,7 @@ import "./App.css";
 import { DeviationAnalysisScreen } from "./components/deviations/DeviationAnalysisScreen";
 import { MappingPanel } from "./components/import/MappingPanel";
 import { ModelingScreen } from "./components/modeling/ModelingScreen";
+import { ReactionNetworkScreen } from "./components/modeling/ReactionNetworkScreen";
 import { ValidationScreen } from "./components/validation/ValidationScreen";
 import {
   applyMappingToDataset,
@@ -17,6 +18,7 @@ import type { ValidationReport } from "./lib/import/validation";
 import { generateImportValidationReport } from "./lib/import/validation";
 import type { DeviationAnalysisState } from "./types/analysisState";
 import type { Experiment } from "./types/experiment";
+import type { ModelingPlan, ReactionNetwork } from "./types/modeling";
 
 // UI reference draft: design/kinetik-researcher.design-draft.html
 
@@ -24,6 +26,7 @@ type StepKey =
   | "import"
   | "validation"
   | "deviations"
+  | "network"
   | "modeling"
   | "report";
 
@@ -35,7 +38,8 @@ const steps: { key: StepKey; label: string; description: string }[] = [
     label: "Abweichungen & Repräsentativität",
     description: "Kommentar-Scan + Parameter-Abgleich"
   },
-  { key: "modeling", label: "Modeling", description: "Fit & Charts" },
+  { key: "network", label: "Reaktionsnetzwerk", description: "Rollen & Pfade" },
+  { key: "modeling", label: "Modeling", description: "Fit-Strategie wählen" },
   { key: "report", label: "Report", description: "Zusammenfassung" }
 ];
 
@@ -130,6 +134,12 @@ function App() {
   const [analysisState, setAnalysisState] = useState<DeviationAnalysisState>(() =>
     createInitialAnalysisState([])
   );
+  const [reactionNetwork, setReactionNetwork] = useState<ReactionNetwork>({
+    assignments: [],
+    edges: [],
+    confirmed: false
+  });
+  const [modelingPlan, setModelingPlan] = useState<ModelingPlan | null>(null);
   const mappingPanelRef = useRef<HTMLDivElement | null>(null);
 
   const normalizedActiveTable = useMemo<RawTable | null>(() => {
@@ -217,6 +227,8 @@ function App() {
     setMappingSuccessShown(false);
     setLastAppliedSelection(null);
     setAnalysisState(createInitialAnalysisState([]));
+    setReactionNetwork({ assignments: [], edges: [], confirmed: false });
+    setModelingPlan(null);
     const uploadEntry = createAuditEntry("FILE_UPLOADED", {
       fileName: file.name,
       fileType: file.name.split(".").pop()?.toLowerCase()
@@ -281,6 +293,8 @@ function App() {
     setMappingSuccessShown(false);
     setLastAppliedSelection(null);
     setAnalysisState(createInitialAnalysisState([]));
+    setReactionNetwork({ assignments: [], edges: [], confirmed: false });
+    setModelingPlan(null);
   };
 
   const handleSheetChange = (sheetName: string) => {
@@ -297,6 +311,8 @@ function App() {
       return { ...current, experiments: [] };
     });
     setAnalysisState(createInitialAnalysisState([]));
+    setReactionNetwork({ assignments: [], edges: [], confirmed: false });
+    setModelingPlan(null);
   };
 
   const handleApplyMapping = () => {
@@ -341,6 +357,8 @@ function App() {
     setMappingSuccess(result.stats);
     setLastAppliedSelection(mappingSelection);
     setAnalysisState(createInitialAnalysisState(result.dataset.experiments));
+    setReactionNetwork({ assignments: [], edges: [], confirmed: false });
+    setModelingPlan(null);
   };
 
   const handleBackToMapping = () => {
@@ -366,7 +384,10 @@ function App() {
     if (stepKey === "import") return true;
     if (stepKey === "validation") return Boolean(mappingSuccess);
     if (stepKey === "deviations") return Boolean(importReport && importReport.status !== "broken");
-    return Boolean(importedExperiments.length);
+    if (stepKey === "network") return Boolean(importedExperiments.length);
+    if (stepKey === "modeling") return reactionNetwork.confirmed;
+    if (stepKey === "report") return Boolean(modelingPlan);
+    return false;
   };
 
   const renderImportStep = () => (
@@ -530,12 +551,36 @@ function App() {
       );
     }
 
+    if (activeStep === "network") {
+      return (
+        <ReactionNetworkScreen
+          experiments={importedExperiments}
+          analysisState={analysisState}
+          network={reactionNetwork}
+          onNetworkChange={(next) => {
+            setReactionNetwork(next);
+            setModelingPlan(null);
+          }}
+          onBack={() => setActiveStep("deviations")}
+          onConfirm={() => {
+            setReactionNetwork((prev) => ({ ...prev, confirmed: true }));
+            setActiveStep("modeling");
+          }}
+        />
+      );
+    }
+
     if (activeStep === "modeling") {
       return (
         <ModelingScreen
           experiments={importedExperiments}
           analysisState={analysisState}
-          onBack={() => setActiveStep("deviations")}
+          network={reactionNetwork}
+          onBack={() => setActiveStep("network")}
+          onConfirm={(plan) => {
+            setModelingPlan(plan);
+            setActiveStep("report");
+          }}
         />
       );
     }

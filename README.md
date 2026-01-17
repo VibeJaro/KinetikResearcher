@@ -3,7 +3,7 @@
 Ein geführter Kinetik-Assistent für Chemiker:innen und Ingenieur:innen, die schnell und sicher durch Datenimport, Validierung, Modellierung und Reporting kommen wollen – ohne Kinetik-Expert:in sein zu müssen.
 
 ## Was die App bietet
-- **Geführter Flow**: Import & Mapping → Validation → Abweichungen & Repräsentativität (LLM-gestützt, Kommentar- + Parameter-Spalten einmal wählen) → Modeling/Fit → Report/Export (LLM-unterstützt).
+- **Geführter Flow**: Import & Mapping → Validation → Abweichungen & Repräsentativität (LLM-gestützt, Kommentar- + Parameter-Spalten einmal wählen) → Reaktionsnetzwerk → Modeling/Fit → Report/Export (LLM-unterstützt).
 - **Geführte UX**: verständliche Texte, empfohlene Defaults, “Warum?”-Tooltips und Undo-freundliche Aktionen.
 - **Validierung auf Deutsch**: Serien-Kacheln mit Mini-Plots (Punkte + Linie), klare Kurztexte und Handlungsempfehlungen, damit auch nicht-expertische Nutzer:innen schnell entscheiden können.
 - **Auditierbar**: Jede Annahme und Antwort landet im Audit-Log, ohne die vorhandenen Funktionen einzuschränken.
@@ -13,14 +13,15 @@ Ein geführter Kinetik-Assistent für Chemiker:innen und Ingenieur:innen, die sc
 ## Design-Referenz
 Das App-Layout folgt dem UI-Design-Draft unter `design/kinetik-researcher.design-draft.html` (Design-Vertrag, kein Produktionscode). Öffne die Datei im Browser, um das neue End-to-End-UI zu sehen. Implementierungen in `app/` sollen die dortige Informationsarchitektur und Kerninteraktionen funktional widerspiegeln:
  - Sticky Header mit Nutzer-Badge
- - Horizontaler Stepper mit Fortschrittsbalken (5 Schritte, Abweichungen + Repräsentativität kombiniert)
+ - Horizontaler Stepper mit Fortschrittsbalken (6 Schritte, Abweichungen + Repräsentativität kombiniert, Reaktionsnetzwerk vor Modeling)
  - Card-basierte Screens im mittig ausgerichteten Container
 
 ### Screens aus dem Draft (verbindliche UX-Elemente)
 - **Import**: Drag-and-Drop Upload-Zone; danach Mapping-Card mit Dropdowns und CTA „Weiter zur Validierung“. Das UI wurde bereits auf das neue Draft-Layout gehoben (Header-Badge, horizontaler Stepper, Cards). Werte-Spalten lassen sich per Mehrfachauswahl im Dropdown setzen, die Replicate-Auswahl ist entfallen, und sobald eine Experiment-Spalte gewählt ist, zeigt die Vorschau direkt die ersten 20 Experimente (jeweils erste Zeile).
 - **Validation**: Serien-Kacheln mit Dauer/Point-Count, Mini-Plots (Punkte + Linie) für den Schnellcheck, deutschsprachige Hinweise (Status-Pill + Technische Details) und CTA-Leiste „Zurück/Weiter“ unten.
 - **Abweichungen & Repräsentativität (LLM)**: Kombinierter Schritt. Nutzer:innen wählen Kommentar- und Parameter-Spalten einmal, das LLM scannt erst die Kommentare auf Abweichungen und führt danach den Abgleich gegen die Parameter durch. Ergebnis: Abweichungs-Liste, Inkonsistenzen, Fit-Empfehlung und Auswahl für den Fit – alles pro Experiment in einer Kachel.
-- **Modeling**: Reaktionsnetzwerk definieren – Rollen der Spalten (Edukt/Produkt/Zwischen-/Nebenprodukt) + einfache Netzwerk-Definition (Pfeile/Abzweige) auf Basis der in Schritt 3 ausgewählten Experimente; Fit-Auswahl und LLM-Ergebnisse bleiben beim Schrittwechsel erhalten, damit der Fit vorbereitet werden kann.
+- **Reaktionsnetzwerk**: Rollen der Spalten (Edukt/Produkt/Zwischen-/Nebenprodukt) + einfache Netzwerk-Definition (Pfeile/Abzweige) auf Basis der in Schritt 3 ausgewählten Experimente; Fit-Auswahl und LLM-Ergebnisse bleiben beim Schrittwechsel erhalten.
+- **Modeling**: Fit-Strategie wählen (saubere Kinetik, Kat-Deaktivierung, unbekannte Nebenpfade) und daraus einen Modellierungsplan mit Parametern ableiten.
 - **Report**: Zweispaltig – links Chat mit Quick-Replies und „Report Generieren“, rechts PDF-Preview mit Titelbar + Download-CTA.
 
 ## Dev-Setup

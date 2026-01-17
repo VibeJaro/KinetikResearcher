@@ -22,12 +22,13 @@ Eine App, die Projektchemiker:innen und Ingenieur:innen Schritt für Schritt dur
 
 ## 2) Design-Draft (WICHTIG)
 - Referenz & Vorschau: `design/kinetik-researcher.design-draft.html` (UI/UX-Vertrag). Im Browser öffnen, um das neue End-to-End-Layout zu sehen.
-- Neues UI/UX-Grundgerüst: Sticky Header mit Nutzer-Badge, horizontaler Stepper mit Fortschrittsbalken (5 Schritte, Abweichungen + Repräsentativität kombiniert), card-basierte Screens im mittig ausgerichteten Container.
+- Neues UI/UX-Grundgerüst: Sticky Header mit Nutzer-Badge, horizontaler Stepper mit Fortschrittsbalken (6 Schritte, Abweichungen + Repräsentativität kombiniert, Reaktionsnetzwerk vor Modeling), card-basierte Screens im mittig ausgerichteten Container.
 - Step-Spezifika aus dem Draft (müssen in der App erkennbar sein):
   - Import: Drag-and-Drop Upload-Zone, danach Mapping-Card mit Dropdowns und „Weiter zur Validierung“-CTA.
   - Validation: Checkliste mit Badge-Status (Laden/OK), KI-Analyse-Hinweisbox und CTA-Leiste „Zurück/Abschließen“ unten.
   - Abweichungen & Repräsentativität: Auswahl der Kommentar- und Parameter-Spalten einmalig; LLM scannt Kommentare und gleicht danach Parameter ab. Ergebnisse (Abweichungen, Inkonsistenzen, Fit-Empfehlung) pro Experiment in einer Kachel.
-  - Modeling: Reaktionsnetzwerk zuerst definieren (Spaltenrollen: Edukt/Produkt/Zwischen-/Nebenprodukt, einfache Pfeil-Definition für Nebenpfade), danach zweispaltig (links Fit-Parameter inkl. Arrhenius-Checkbox + R²-Summary, rechts Chart-Card mit Legende), Abschluss-CTA „Berechnen“.
+  - Reaktionsnetzwerk: Spaltenrollen (Edukt/Produkt/Zwischen-/Nebenprodukt) + einfache Pfeil-Definition für Nebenpfade; Abschluss-CTA „Weiter zum Modeling“.
+  - Modeling: Fit-Strategie wählen (saubere Kinetik, Kat-Deaktivierung, unbekannte Nebenpfade), danach zweispaltig (links Fit-Parameter inkl. Arrhenius-Checkbox + R²-Summary, rechts Chart-Card mit Legende), Abschluss-CTA „Berechnen“.
   - Report: Zweispaltig (links Chat mit Quick-Replies und „Report Generieren“, rechts PDF-Preview mit Titelbar + Download-CTA).
 - Implementierungen in `app/` müssen diese Layouts und Kerninteraktionen funktional widerspiegeln; visuelle Feinheiten dürfen mit Framework-Styles umgesetzt werden.
 - Bei Abweichungen: Implementierung anpassen oder Draft bewusst aktualisieren. Wichtige UI-Entscheidungen als ADR dokumentieren (`/docs/adr`).
@@ -38,8 +39,9 @@ Eine App, die Projektchemiker:innen und Ingenieur:innen Schritt für Schritt dur
 1) **Import & Mapping** – Upload-Hinweise, Beispiel-Formate, auto-vorgeschlagene Rollen, einfache Korrekturen.
 2) **Validation** – Flag-Liste mit Klartext, Prioritäten, Fix-Vorschlägen und Effekten auf spätere Schritte.
 3) **Abweichungen & Repräsentativität (LLM)** – Nutzer:innen wählen Kommentar- und Parameter-Spalten einmal. Das LLM scannt pro Experiment erst Kommentare, dann den Parameter-Abgleich; Ergebnisse, Fit-Empfehlung und Herkunftsspalten landen im Audit-Log.
-4) **Modeling/Fit** – verständliche Presets (z.B. “einfacher 1. Ordnung Fit”), Parameter-Erklärungen, Ergebnis-Klartext; nutzt die in Schritt 3 getroffene Fit-Auswahl und zeigt echte Daten aus den ausgewählten Experimenten.
-5) **Report/Export (LLM-unterstützt)** – LLM stellt Klarstellungsfragen, prüft Missverständnisse/Unsicherheiten und erzeugt einen ausführlichen Report inkl. Grafiken; Annahmen klar markieren.
+4) **Reaktionsnetzwerk** – Rollen der Spalten + Netzwerkpfade definieren, inklusive Nebenpfaden; nutzt die in Schritt 3 getroffene Fit-Auswahl.
+5) **Modeling/Fit** – verständliche Presets (z.B. “einfacher 1. Ordnung Fit”, Kat-Deaktivierung), Parameter-Erklärungen, Ergebnis-Klartext; nutzt die in Schritt 4 definierte Netzwerkstruktur.
+6) **Report/Export (LLM-unterstützt)** – LLM stellt Klarstellungsfragen, prüft Missverständnisse/Unsicherheiten und erzeugt einen ausführlichen Report inkl. Grafiken; Annahmen klar markieren.
 
 Diese Schritte müssen in der Navigation erkennbar und entlang des Drafts umgesetzt sein (kombinierter LLM-Schritt statt Doppel-Step).
 
@@ -135,8 +137,9 @@ Zulässige Agent-Calls (Beispiele):
 5) Audit-Log v1 (Decisions + Anzeige)
 6) Questions UI + applyDecision
 7) Abweichungen & Repräsentativität (Kommentarspalten + Parameter-Abgleich, zwei LLM-Calls)
-8) Modeling v1 (1. Ordnung) + Diagnoseplots Placeholder
-9) Report v1 (Markdown Preview + Export Dummy)
+8) Reaktionsnetzwerk v1 (Rollen + Pfeile) inkl. Datenbasis
+9) Modeling v1 (1. Ordnung, Deaktivierung, Nebenpfade) + Diagnoseplots Placeholder
+10) Report v1 (Markdown Preview + Export Dummy)
 
 ---
 

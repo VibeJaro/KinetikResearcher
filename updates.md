@@ -1,3 +1,7 @@
+## 2026-04-02
+- Schritt „Modeling“ in zwei Phasen getrennt: neuer Schritt „Reaktionsnetzwerk“ vor dem eigentlichen Modeling, inklusive eigener Navigation.
+- Modeling-Schritt ergänzt: Auswahl einer Fit-Strategie (saubere Kinetik, Kat-Deaktivierung, unbekannte Nebenpfade) erzeugt einen Modellierungsplan mit Parametern und Warnhinweisen.
+
 ## 2026-03-26
 - Modeling-Schritt mit echten Daten verknüpft: Fit-Vormerkungen und LLM-Ergebnisse aus Schritt 3 bleiben beim Schrittwechsel erhalten und bilden die Datenbasis für das Netzwerk.
 - Neue Übersicht zeigt ausgewählte Experimente, Messreihen, Punkte und Fit-Empfehlungen, damit der Fit vorbereitet werden kann.
