@@ -1,3 +1,7 @@
+## 2026-03-26
+- Modeling-Schritt mit echten Daten verknüpft: Fit-Vormerkungen und LLM-Ergebnisse aus Schritt 3 bleiben beim Schrittwechsel erhalten und bilden die Datenbasis für das Netzwerk.
+- Neue Übersicht zeigt ausgewählte Experimente, Messreihen, Punkte und Fit-Empfehlungen, damit der Fit vorbereitet werden kann.
+
 ## 2026-03-19
 - Modeling-Schritt neu gestaltet: Nutzer:innen ordnen Spalten den Rollen (Edukt, Produkt, Zwischenprodukt, Nebenprodukt) zu und definieren per einfacher Pfeil-Liste das Reaktionsnetzwerk inklusive Nebenpfaden.
 - Neue Guidance-Box mit automatischen Hinweisen und CTA-Leiste zur Bestätigung des Netzwerks ergänzt.

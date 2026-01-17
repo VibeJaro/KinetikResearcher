@@ -15,6 +15,8 @@ import { parseFile } from "./lib/import/parseFile";
 import type { AuditEntry, Dataset, RawTable } from "./lib/import/types";
 import type { ValidationReport } from "./lib/import/validation";
 import { generateImportValidationReport } from "./lib/import/validation";
+import type { DeviationAnalysisState } from "./types/analysisState";
+import type { Experiment } from "./types/experiment";
 
 // UI reference draft: design/kinetik-researcher.design-draft.html
 
@@ -60,6 +62,46 @@ const findDefaultTimeColumn = (headers: string[]): number | null => {
   return index >= 0 ? index : null;
 };
 
+const createInitialAnalysisState = (
+  experiments: Experiment[]
+): DeviationAnalysisState => {
+  const results = experiments.reduce((acc, experiment) => {
+    acc[experiment.experimentId] = {
+      experimentId: experiment.experimentId,
+      experimentName: experiment.name ?? experiment.experimentId,
+      status: "pending",
+      findings: [],
+      model: "gpt-5-mini-2025-08-07"
+    };
+    return acc;
+  }, {} as DeviationAnalysisState["results"]);
+
+  const representativityResults = experiments.reduce((acc, experiment) => {
+    acc[experiment.experimentId] = {
+      experimentId: experiment.experimentId,
+      experimentName: experiment.name ?? experiment.experimentId,
+      status: "pending",
+      findings: [],
+      model: "gpt-5-mini-2025-08-07",
+      fitRecommendation: "review"
+    };
+    return acc;
+  }, {} as DeviationAnalysisState["representativityResults"]);
+
+  const fitSelection = experiments.reduce((acc, experiment) => {
+    acc[experiment.experimentId] = true;
+    return acc;
+  }, {} as DeviationAnalysisState["fitSelection"]);
+
+  return {
+    selectedDeviationColumns: [],
+    selectedParameterColumns: [],
+    results,
+    representativityResults,
+    fitSelection
+  };
+};
+
 function App() {
   const [activeStep, setActiveStep] = useState<StepKey>("import");
   const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([]);
@@ -85,6 +127,9 @@ function App() {
   const [lastAppliedSelection, setLastAppliedSelection] =
     useState<MappingSelection | null>(null);
   const [importReport, setImportReport] = useState<ValidationReport | null>(null);
+  const [analysisState, setAnalysisState] = useState<DeviationAnalysisState>(() =>
+    createInitialAnalysisState([])
+  );
   const mappingPanelRef = useRef<HTMLDivElement | null>(null);
 
   const normalizedActiveTable = useMemo<RawTable | null>(() => {
@@ -171,6 +216,7 @@ function App() {
     setMappingSuccess(null);
     setMappingSuccessShown(false);
     setLastAppliedSelection(null);
+    setAnalysisState(createInitialAnalysisState([]));
     const uploadEntry = createAuditEntry("FILE_UPLOADED", {
       fileName: file.name,
       fileType: file.name.split(".").pop()?.toLowerCase()
@@ -234,6 +280,7 @@ function App() {
     setMappingSuccess(null);
     setMappingSuccessShown(false);
     setLastAppliedSelection(null);
+    setAnalysisState(createInitialAnalysisState([]));
   };
 
   const handleSheetChange = (sheetName: string) => {
@@ -249,6 +296,7 @@ function App() {
       }
       return { ...current, experiments: [] };
     });
+    setAnalysisState(createInitialAnalysisState([]));
   };
 
   const handleApplyMapping = () => {
@@ -292,6 +340,7 @@ function App() {
     setDataset({ ...result.dataset, audit: nextAuditEntries });
     setMappingSuccess(result.stats);
     setLastAppliedSelection(mappingSelection);
+    setAnalysisState(createInitialAnalysisState(result.dataset.experiments));
   };
 
   const handleBackToMapping = () => {
@@ -475,12 +524,20 @@ function App() {
           table={normalizedActiveTable}
           mappingSelection={mappingSelection}
           datasetName={dataset?.name ?? null}
+          analysisState={analysisState}
+          onAnalysisStateChange={setAnalysisState}
         />
       );
     }
 
     if (activeStep === "modeling") {
-      return <ModelingScreen />;
+      return (
+        <ModelingScreen
+          experiments={importedExperiments}
+          analysisState={analysisState}
+          onBack={() => setActiveStep("deviations")}
+        />
+      );
     }
 
     return (
