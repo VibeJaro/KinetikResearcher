@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import { buildColumnSummaries } from "../../lib/columnScan/buildColumnSummaries";
 import type { MappingSelection } from "../../lib/import/mapping";
 import type { RawTable } from "../../lib/import/types";
+import type { DeviationAnalysisState } from "../../types/analysisState";
 import type { Experiment } from "../../types/experiment";
 import {
   deviationOntology,
@@ -26,6 +27,8 @@ type DeviationAnalysisScreenProps = {
   table: RawTable | null;
   mappingSelection: MappingSelection;
   datasetName: string | null;
+  analysisState: DeviationAnalysisState;
+  onAnalysisStateChange: Dispatch<SetStateAction<DeviationAnalysisState>>;
 };
 
 type ExperimentContext = {
@@ -105,15 +108,17 @@ export const DeviationAnalysisScreen = ({
   experiments,
   table,
   mappingSelection,
-  datasetName
+  datasetName,
+  analysisState,
+  onAnalysisStateChange
 }: DeviationAnalysisScreenProps) => {
-  const [selectedDeviationColumns, setSelectedDeviationColumns] = useState<string[]>([]);
-  const [selectedParameterColumns, setSelectedParameterColumns] = useState<string[]>([]);
-  const [results, setResults] = useState<Record<string, ExperimentDeviationResult>>({});
-  const [representativityResults, setRepresentativityResults] = useState<
-    Record<string, ExperimentRepresentativityResult>
-  >({});
-  const [fitSelection, setFitSelection] = useState<Record<string, boolean>>({});
+  const {
+    selectedDeviationColumns,
+    selectedParameterColumns,
+    results,
+    representativityResults,
+    fitSelection
+  } = analysisState;
   const [running, setRunning] = useState(false);
   const [hideClean, setHideClean] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<DeviationCategory | "all">("all");
@@ -164,45 +169,82 @@ export const DeviationAnalysisScreen = ({
   }, [columnSummaries, mappingSelection, table]);
 
   useEffect(() => {
-    setSelectedDeviationColumns(defaultDeviationColumns);
-    setSelectedParameterColumns(defaultParameterColumns);
-  }, [defaultDeviationColumns, defaultParameterColumns]);
+    if (defaultDeviationColumns.length === 0 && defaultParameterColumns.length === 0) {
+      return;
+    }
+    onAnalysisStateChange((prev) => {
+      if (
+        prev.selectedDeviationColumns.length > 0 ||
+        prev.selectedParameterColumns.length > 0
+      ) {
+        return prev;
+      }
+      return {
+        ...prev,
+        selectedDeviationColumns: defaultDeviationColumns,
+        selectedParameterColumns: defaultParameterColumns
+      };
+    });
+  }, [defaultDeviationColumns, defaultParameterColumns, onAnalysisStateChange]);
 
   useEffect(() => {
     if (experiments.length === 0) {
-      setResults({});
-      setRepresentativityResults({});
-      setFitSelection({});
+      onAnalysisStateChange((prev) => ({
+        ...prev,
+        results: {},
+        representativityResults: {},
+        fitSelection: {}
+      }));
       return;
     }
 
-    const nextDeviation: Record<string, ExperimentDeviationResult> = {};
-    const nextRepresentativity: Record<string, ExperimentRepresentativityResult> = {};
-    const nextSelection: Record<string, boolean> = {};
+    onAnalysisStateChange((prev) => {
+      let changed = false;
+      const nextDeviation: Record<string, ExperimentDeviationResult> = { ...prev.results };
+      const nextRepresentativity: Record<string, ExperimentRepresentativityResult> = {
+        ...prev.representativityResults
+      };
+      const nextSelection: Record<string, boolean> = { ...prev.fitSelection };
 
-    experiments.forEach((experiment) => {
-      nextDeviation[experiment.experimentId] = {
-        experimentId: experiment.experimentId,
-        experimentName: experiment.name ?? experiment.experimentId,
-        status: "pending",
-        findings: [],
-        model: "gpt-5-mini-2025-08-07"
+      experiments.forEach((experiment) => {
+        if (!nextDeviation[experiment.experimentId]) {
+          nextDeviation[experiment.experimentId] = {
+            experimentId: experiment.experimentId,
+            experimentName: experiment.name ?? experiment.experimentId,
+            status: "pending",
+            findings: [],
+            model: "gpt-5-mini-2025-08-07"
+          };
+          changed = true;
+        }
+        if (!nextRepresentativity[experiment.experimentId]) {
+          nextRepresentativity[experiment.experimentId] = {
+            experimentId: experiment.experimentId,
+            experimentName: experiment.name ?? experiment.experimentId,
+            status: "pending",
+            findings: [],
+            model: "gpt-5-mini-2025-08-07",
+            fitRecommendation: defaultRecommendation()
+          };
+          changed = true;
+        }
+        if (nextSelection[experiment.experimentId] === undefined) {
+          nextSelection[experiment.experimentId] = true;
+          changed = true;
+        }
+      });
+
+      if (!changed) {
+        return prev;
+      }
+      return {
+        ...prev,
+        results: nextDeviation,
+        representativityResults: nextRepresentativity,
+        fitSelection: nextSelection
       };
-      nextRepresentativity[experiment.experimentId] = {
-        experimentId: experiment.experimentId,
-        experimentName: experiment.name ?? experiment.experimentId,
-        status: "pending",
-        findings: [],
-        model: "gpt-5-mini-2025-08-07",
-        fitRecommendation: defaultRecommendation()
-      };
-      nextSelection[experiment.experimentId] = true;
     });
-
-    setResults(nextDeviation);
-    setRepresentativityResults(nextRepresentativity);
-    setFitSelection(nextSelection);
-  }, [experiments]);
+  }, [experiments, onAnalysisStateChange]);
 
   const contexts: ExperimentContext[] = useMemo(() => {
     if (!table) return [];
@@ -250,12 +292,16 @@ export const DeviationAnalysisScreen = ({
     table
   ]);
 
-  const handleToggle = (value: string, list: string[], setter: (next: string[]) => void) => {
-    setter(list.includes(value) ? list.filter((item) => item !== value) : [...list, value]);
+  const handleToggle = (value: string, list: string[], key: "selectedDeviationColumns" | "selectedParameterColumns") => {
+    const next = list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
+    onAnalysisStateChange((prev) => ({ ...prev, [key]: next }));
   };
 
   const handleSelectionToggle = (experimentId: string) => {
-    setFitSelection((prev) => ({ ...prev, [experimentId]: !prev[experimentId] }));
+    onAnalysisStateChange((prev) => ({
+      ...prev,
+      fitSelection: { ...prev.fitSelection, [experimentId]: !prev.fitSelection[experimentId] }
+    }));
   };
 
   const handleRunAnalysis = async () => {
@@ -267,45 +313,51 @@ export const DeviationAnalysisScreen = ({
     for (const context of contexts) {
       const hasSnippets = context.deviationColumns.length > 0;
       if (!hasSnippets) {
-        setResults((prev) => ({
+        onAnalysisStateChange((prev) => ({
           ...prev,
-          [context.experimentId]: {
-            ...prev[context.experimentId],
-            status: "no_findings",
-            findings: [],
-            usedColumns: {
-              deviation: selectedDeviationColumns,
-              parameters: selectedParameterColumns
+          results: {
+            ...prev.results,
+            [context.experimentId]: {
+              ...prev.results[context.experimentId],
+              status: "no_findings",
+              findings: [],
+              usedColumns: {
+                deviation: selectedDeviationColumns,
+                parameters: selectedParameterColumns
+              }
             }
-          }
-        }));
-        setRepresentativityResults((prev) => ({
-          ...prev,
-          [context.experimentId]: {
-            ...prev[context.experimentId],
-            status: "no_findings",
-            findings: [],
-            fitRecommendation: "good",
-            summary: "Keine Hinweise in den gewählten Kommentarspalten.",
-            usedColumns: {
-              reference: selectedParameterColumns,
-              context: selectedDeviationColumns
+          },
+          representativityResults: {
+            ...prev.representativityResults,
+            [context.experimentId]: {
+              ...prev.representativityResults[context.experimentId],
+              status: "no_findings",
+              findings: [],
+              fitRecommendation: "good",
+              summary: "Keine Hinweise in den gewählten Kommentarspalten.",
+              usedColumns: {
+                reference: selectedParameterColumns,
+                context: selectedDeviationColumns
+              }
             }
           }
         }));
         continue;
       }
 
-      setResults((prev) => ({
+      onAnalysisStateChange((prev) => ({
         ...prev,
-        [context.experimentId]: {
-          ...prev[context.experimentId],
-          status: "running",
-          findings: [],
-          error: undefined,
-          usedColumns: {
-            deviation: selectedDeviationColumns,
-            parameters: selectedParameterColumns
+        results: {
+          ...prev.results,
+          [context.experimentId]: {
+            ...prev.results[context.experimentId],
+            status: "running",
+            findings: [],
+            error: undefined,
+            usedColumns: {
+              deviation: selectedDeviationColumns,
+              parameters: selectedParameterColumns
+            }
           }
         }
       }));
@@ -329,14 +381,17 @@ export const DeviationAnalysisScreen = ({
         if (!response.ok || !data?.ok) {
           const message =
             data?.error ?? "LLM-Analyse fehlgeschlagen. OPENAI_API_KEY konfiguriert?";
-          setResults((prev) => ({
+          onAnalysisStateChange((prev) => ({
             ...prev,
-            [context.experimentId]: {
-              ...prev[context.experimentId],
-              status: "error",
-              findings: [],
-              requestId,
-              error: typeof message === "string" ? message : "Unbekannter Fehler"
+            results: {
+              ...prev.results,
+              [context.experimentId]: {
+                ...prev.results[context.experimentId],
+                status: "error",
+                findings: [],
+                requestId,
+                error: typeof message === "string" ? message : "Unbekannter Fehler"
+              }
             }
           }));
         } else {
@@ -347,42 +402,51 @@ export const DeviationAnalysisScreen = ({
               : ("gpt-5-mini-2025-08-07" as ExperimentDeviationResult["model"]);
           const hasFindings = findings.length > 0;
 
-          setResults((prev) => ({
+          onAnalysisStateChange((prev) => ({
             ...prev,
-            [context.experimentId]: {
-              ...prev[context.experimentId],
-              status: hasFindings ? "findings" : "no_findings",
-              findings,
-              model: modelUsed,
-              requestId
+            results: {
+              ...prev.results,
+              [context.experimentId]: {
+                ...prev.results[context.experimentId],
+                status: hasFindings ? "findings" : "no_findings",
+                findings,
+                model: modelUsed,
+                requestId
+              }
             }
           }));
         }
       } catch (error) {
-        setResults((prev) => ({
+        onAnalysisStateChange((prev) => ({
           ...prev,
-          [context.experimentId]: {
-            ...prev[context.experimentId],
-            status: "error",
-            findings: [],
-            error:
-              error instanceof Error
-                ? error.message
-                : "Unbekannter Fehler bei der LLM-Analyse"
+          results: {
+            ...prev.results,
+            [context.experimentId]: {
+              ...prev.results[context.experimentId],
+              status: "error",
+              findings: [],
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Unbekannter Fehler bei der LLM-Analyse"
+            }
           }
         }));
       }
 
-      setRepresentativityResults((prev) => ({
+      onAnalysisStateChange((prev) => ({
         ...prev,
-        [context.experimentId]: {
-          ...prev[context.experimentId],
-          status: "running",
-          findings: [],
-          error: undefined,
-          usedColumns: {
-            reference: selectedParameterColumns,
-            context: selectedDeviationColumns
+        representativityResults: {
+          ...prev.representativityResults,
+          [context.experimentId]: {
+            ...prev.representativityResults[context.experimentId],
+            status: "running",
+            findings: [],
+            error: undefined,
+            usedColumns: {
+              reference: selectedParameterColumns,
+              context: selectedDeviationColumns
+            }
           }
         }
       }));
@@ -406,14 +470,17 @@ export const DeviationAnalysisScreen = ({
         if (!response.ok || !data?.ok) {
           const message =
             data?.error ?? "LLM-Analyse fehlgeschlagen. OPENAI_API_KEY konfiguriert?";
-          setRepresentativityResults((prev) => ({
+          onAnalysisStateChange((prev) => ({
             ...prev,
-            [context.experimentId]: {
-              ...prev[context.experimentId],
-              status: "error",
-              findings: [],
-              requestId,
-              error: typeof message === "string" ? message : "Unbekannter Fehler"
+            representativityResults: {
+              ...prev.representativityResults,
+              [context.experimentId]: {
+                ...prev.representativityResults[context.experimentId],
+                status: "error",
+                findings: [],
+                requestId,
+                error: typeof message === "string" ? message : "Unbekannter Fehler"
+              }
             }
           }));
           continue;
@@ -433,29 +500,35 @@ export const DeviationAnalysisScreen = ({
         const summary = typeof data.result?.summary === "string" ? data.result.summary : undefined;
         const hasFindings = findings.length > 0;
 
-        setRepresentativityResults((prev) => ({
+        onAnalysisStateChange((prev) => ({
           ...prev,
-          [context.experimentId]: {
-            ...prev[context.experimentId],
-            status: hasFindings ? "findings" : "no_findings",
-            findings,
-            model: modelUsed,
-            requestId,
-            fitRecommendation: recommendation,
-            summary
+          representativityResults: {
+            ...prev.representativityResults,
+            [context.experimentId]: {
+              ...prev.representativityResults[context.experimentId],
+              status: hasFindings ? "findings" : "no_findings",
+              findings,
+              model: modelUsed,
+              requestId,
+              fitRecommendation: recommendation,
+              summary
+            }
           }
         }));
       } catch (error) {
-        setRepresentativityResults((prev) => ({
+        onAnalysisStateChange((prev) => ({
           ...prev,
-          [context.experimentId]: {
-            ...prev[context.experimentId],
-            status: "error",
-            findings: [],
-            error:
-              error instanceof Error
-                ? error.message
-                : "Unbekannter Fehler bei der LLM-Analyse"
+          representativityResults: {
+            ...prev.representativityResults,
+            [context.experimentId]: {
+              ...prev.representativityResults[context.experimentId],
+              status: "error",
+              findings: [],
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Unbekannter Fehler bei der LLM-Analyse"
+            }
           }
         }));
       }
@@ -583,11 +656,7 @@ export const DeviationAnalysisScreen = ({
                       type="checkbox"
                       checked={checked}
                       onChange={() =>
-                        handleToggle(
-                          column.name,
-                          selectedDeviationColumns,
-                          setSelectedDeviationColumns
-                        )
+                        handleToggle(column.name, selectedDeviationColumns, "selectedDeviationColumns")
                       }
                     />
                     <div className="selector-body">
@@ -628,11 +697,7 @@ export const DeviationAnalysisScreen = ({
                       type="checkbox"
                       checked={checked}
                       onChange={() =>
-                        handleToggle(
-                          column.name,
-                          selectedParameterColumns,
-                          setSelectedParameterColumns
-                        )
+                        handleToggle(column.name, selectedParameterColumns, "selectedParameterColumns")
                       }
                     />
                     <div className="selector-body">
@@ -666,8 +731,11 @@ export const DeviationAnalysisScreen = ({
               type="button"
               className="btn btn-secondary"
               onClick={() => {
-                setSelectedDeviationColumns(defaultDeviationColumns);
-                setSelectedParameterColumns(defaultParameterColumns);
+                onAnalysisStateChange((prev) => ({
+                  ...prev,
+                  selectedDeviationColumns: defaultDeviationColumns,
+                  selectedParameterColumns: defaultParameterColumns
+                }));
               }}
               disabled={running}
             >

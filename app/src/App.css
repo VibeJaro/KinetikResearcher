@@ -744,6 +744,12 @@
   color: #991b1b;
 }
 
+.summary-pill.good {
+  background: #dcfce7;
+  border-color: #86efac;
+  color: #166534;
+}
+
 .summary-pill.danger {
   background: #fff1f2;
   border-color: #fecdd3;
@@ -986,6 +992,40 @@
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 16px;
   align-items: start;
+}
+
+.modeling-data-card .card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.modeling-data-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+}
+
+.experiment-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.experiment-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+}
+
+.experiment-name {
+  font-weight: 700;
+  margin: 0;
 }
 
 .modeling-card .card-body {
