@@ -1,3 +1,7 @@
+## 2026-04-02
+- Schritt „Reaktionsnetzwerk“ vor dem Modeling ergänzt: Rollen/Pfade werden separat bestätigt und als eigenes Stepper-Element geführt.
+- Modeling-Schritt aufgeteilt: neue Modellannahmen (Katalysator-Deaktivierung, unbekannte Nebenpfade) erzeugen eine explizite Reaktionsliste als Fit-Grundlage.
+
 ## 2026-03-26
 - Modeling-Schritt mit echten Daten verknüpft: Fit-Vormerkungen und LLM-Ergebnisse aus Schritt 3 bleiben beim Schrittwechsel erhalten und bilden die Datenbasis für das Netzwerk.
 - Neue Übersicht zeigt ausgewählte Experimente, Messreihen, Punkte und Fit-Empfehlungen, damit der Fit vorbereitet werden kann.

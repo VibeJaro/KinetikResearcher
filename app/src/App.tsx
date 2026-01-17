@@ -3,6 +3,7 @@ import "./App.css";
 import { DeviationAnalysisScreen } from "./components/deviations/DeviationAnalysisScreen";
 import { MappingPanel } from "./components/import/MappingPanel";
 import { ModelingScreen } from "./components/modeling/ModelingScreen";
+import { ReactionNetworkScreen } from "./components/modeling/ReactionNetworkScreen";
 import { ValidationScreen } from "./components/validation/ValidationScreen";
 import {
   applyMappingToDataset,
@@ -17,6 +18,7 @@ import type { ValidationReport } from "./lib/import/validation";
 import { generateImportValidationReport } from "./lib/import/validation";
 import type { DeviationAnalysisState } from "./types/analysisState";
 import type { Experiment } from "./types/experiment";
+import type { ModelingOptions, ReactionNetworkState } from "./types/modeling";
 
 // UI reference draft: design/kinetik-researcher.design-draft.html
 
@@ -24,6 +26,7 @@ type StepKey =
   | "import"
   | "validation"
   | "deviations"
+  | "network"
   | "modeling"
   | "report";
 
@@ -35,7 +38,8 @@ const steps: { key: StepKey; label: string; description: string }[] = [
     label: "Abweichungen & Repräsentativität",
     description: "Kommentar-Scan + Parameter-Abgleich"
   },
-  { key: "modeling", label: "Modeling", description: "Fit & Charts" },
+  { key: "network", label: "Reaktionsnetzwerk", description: "Pfade & Rollen" },
+  { key: "modeling", label: "Modeling", description: "Fit vorbereiten" },
   { key: "report", label: "Report", description: "Zusammenfassung" }
 ];
 
@@ -102,6 +106,18 @@ const createInitialAnalysisState = (
   };
 };
 
+const createInitialNetworkState = (): ReactionNetworkState => ({
+  assignments: [],
+  edges: [],
+  confirmed: false
+});
+
+const createInitialModelingOptions = (): ModelingOptions => ({
+  includeDeactivation: false,
+  deactivationModel: "first_order",
+  includeUnknownSidePaths: true
+});
+
 function App() {
   const [activeStep, setActiveStep] = useState<StepKey>("import");
   const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([]);
@@ -130,6 +146,13 @@ function App() {
   const [analysisState, setAnalysisState] = useState<DeviationAnalysisState>(() =>
     createInitialAnalysisState([])
   );
+  const [reactionNetwork, setReactionNetwork] = useState<ReactionNetworkState>(() =>
+    createInitialNetworkState()
+  );
+  const [modelingOptions, setModelingOptions] = useState<ModelingOptions>(() =>
+    createInitialModelingOptions()
+  );
+  const [modelingPrepared, setModelingPrepared] = useState(false);
   const mappingPanelRef = useRef<HTMLDivElement | null>(null);
 
   const normalizedActiveTable = useMemo<RawTable | null>(() => {
@@ -217,6 +240,9 @@ function App() {
     setMappingSuccessShown(false);
     setLastAppliedSelection(null);
     setAnalysisState(createInitialAnalysisState([]));
+    setReactionNetwork(createInitialNetworkState());
+    setModelingOptions(createInitialModelingOptions());
+    setModelingPrepared(false);
     const uploadEntry = createAuditEntry("FILE_UPLOADED", {
       fileName: file.name,
       fileType: file.name.split(".").pop()?.toLowerCase()
@@ -281,6 +307,9 @@ function App() {
     setMappingSuccessShown(false);
     setLastAppliedSelection(null);
     setAnalysisState(createInitialAnalysisState([]));
+    setReactionNetwork(createInitialNetworkState());
+    setModelingOptions(createInitialModelingOptions());
+    setModelingPrepared(false);
   };
 
   const handleSheetChange = (sheetName: string) => {
@@ -297,6 +326,9 @@ function App() {
       return { ...current, experiments: [] };
     });
     setAnalysisState(createInitialAnalysisState([]));
+    setReactionNetwork(createInitialNetworkState());
+    setModelingOptions(createInitialModelingOptions());
+    setModelingPrepared(false);
   };
 
   const handleApplyMapping = () => {
@@ -341,6 +373,9 @@ function App() {
     setMappingSuccess(result.stats);
     setLastAppliedSelection(mappingSelection);
     setAnalysisState(createInitialAnalysisState(result.dataset.experiments));
+    setReactionNetwork(createInitialNetworkState());
+    setModelingOptions(createInitialModelingOptions());
+    setModelingPrepared(false);
   };
 
   const handleBackToMapping = () => {
@@ -366,7 +401,10 @@ function App() {
     if (stepKey === "import") return true;
     if (stepKey === "validation") return Boolean(mappingSuccess);
     if (stepKey === "deviations") return Boolean(importReport && importReport.status !== "broken");
-    return Boolean(importedExperiments.length);
+    if (stepKey === "network") return Boolean(importedExperiments.length);
+    if (stepKey === "modeling") return reactionNetwork.confirmed;
+    if (stepKey === "report") return modelingPrepared;
+    return false;
   };
 
   const renderImportStep = () => (
@@ -530,12 +568,46 @@ function App() {
       );
     }
 
+    if (activeStep === "network") {
+      return (
+        <ReactionNetworkScreen
+          experiments={importedExperiments}
+          analysisState={analysisState}
+          networkState={reactionNetwork}
+          onNetworkChange={(next) => {
+            setReactionNetwork(next);
+            setModelingPrepared(false);
+          }}
+          onBack={() => setActiveStep("deviations")}
+          onConfirm={() => {
+            setReactionNetwork((prev) => ({
+              ...prev,
+              confirmed: true,
+              confirmedAt: new Date().toISOString()
+            }));
+            setActiveStep("modeling");
+            setModelingPrepared(false);
+          }}
+        />
+      );
+    }
+
     if (activeStep === "modeling") {
       return (
         <ModelingScreen
           experiments={importedExperiments}
           analysisState={analysisState}
-          onBack={() => setActiveStep("deviations")}
+          networkState={reactionNetwork}
+          options={modelingOptions}
+          onOptionsChange={(next) => {
+            setModelingOptions(next);
+            setModelingPrepared(false);
+          }}
+          onBack={() => setActiveStep("network")}
+          onContinue={() => {
+            setModelingPrepared(true);
+            setActiveStep("report");
+          }}
         />
       );
     }
