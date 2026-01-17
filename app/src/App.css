@@ -1044,6 +1044,75 @@
   gap: 14px;
 }
 
+.preflight-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.preflight-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  padding: 12px 14px;
+}
+
+.status-pill {
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+}
+
+.status-pill.ok {
+  background: #ecfccb;
+  color: #365314;
+  border-color: #bef264;
+}
+
+.status-pill.warning {
+  background: #fef9c3;
+  color: #854d0e;
+  border-color: #fde047;
+}
+
+.status-pill.fail,
+.status-pill.review {
+  background: #fee2e2;
+  color: #991b1b;
+  border-color: #fecaca;
+}
+
+.candidate-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.candidate-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  padding: 12px 14px;
+}
+
+.candidate-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-end;
+}
+
 .modeling-results-grid {
   display: flex;
   flex-direction: column;
@@ -1101,6 +1170,31 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 16px;
+}
+
+.variant-parameters,
+.variant-diagnostics {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.parameter-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.parameter-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  font-size: 12px;
 }
 
 .variant-equations ul,
