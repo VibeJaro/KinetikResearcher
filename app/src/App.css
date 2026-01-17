@@ -981,6 +981,42 @@
   gap: 18px;
 }
 
+.modeling-overview .card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.modeling-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.modeling-experiment-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.modeling-experiment-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+}
+
+.modeling-tags {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-end;
+}
+
 .modeling-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));

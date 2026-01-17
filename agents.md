@@ -38,7 +38,8 @@ Eine App, die Projektchemiker:innen und Ingenieur:innen Schritt für Schritt dur
 1) **Import & Mapping** – Upload-Hinweise, Beispiel-Formate, auto-vorgeschlagene Rollen, einfache Korrekturen.
 2) **Validation** – Flag-Liste mit Klartext, Prioritäten, Fix-Vorschlägen und Effekten auf spätere Schritte.
 3) **Abweichungen & Repräsentativität (LLM)** – Nutzer:innen wählen Kommentar- und Parameter-Spalten einmal. Das LLM scannt pro Experiment erst Kommentare, dann den Parameter-Abgleich; Ergebnisse, Fit-Empfehlung und Herkunftsspalten landen im Audit-Log.
-4) **Modeling/Fit** – verständliche Presets (z.B. “einfacher 1. Ordnung Fit”), Parameter-Erklärungen, Ergebnis-Klartext.
+   - LLM-Ergebnisse bleiben beim Vor-/Zurückspringen erhalten und steuern die Fit-Vormerkung.
+4) **Modeling/Fit** – verständliche Presets (z.B. “einfacher 1. Ordnung Fit”), Parameter-Erklärungen, Ergebnis-Klartext; nutzt die in Schritt 3 vorgemerkten Experimente als Datenbasis.
 5) **Report/Export (LLM-unterstützt)** – LLM stellt Klarstellungsfragen, prüft Missverständnisse/Unsicherheiten und erzeugt einen ausführlichen Report inkl. Grafiken; Annahmen klar markieren.
 
 Diese Schritte müssen in der Navigation erkennbar und entlang des Drafts umgesetzt sein (kombinierter LLM-Schritt statt Doppel-Step).

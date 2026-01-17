@@ -15,6 +15,7 @@ import { parseFile } from "./lib/import/parseFile";
 import type { AuditEntry, Dataset, RawTable } from "./lib/import/types";
 import type { ValidationReport } from "./lib/import/validation";
 import { generateImportValidationReport } from "./lib/import/validation";
+import type { DeviationAnalysisState } from "./types/deviationState";
 
 // UI reference draft: design/kinetik-researcher.design-draft.html
 
@@ -60,6 +61,17 @@ const findDefaultTimeColumn = (headers: string[]): number | null => {
   return index >= 0 ? index : null;
 };
 
+const initialDeviationState: DeviationAnalysisState = {
+  selectedDeviationColumns: [],
+  selectedParameterColumns: [],
+  results: {},
+  representativityResults: {},
+  fitSelection: {},
+  hideClean: false,
+  categoryFilter: "all",
+  representativityFilter: "all"
+};
+
 function App() {
   const [activeStep, setActiveStep] = useState<StepKey>("import");
   const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([]);
@@ -85,6 +97,8 @@ function App() {
   const [lastAppliedSelection, setLastAppliedSelection] =
     useState<MappingSelection | null>(null);
   const [importReport, setImportReport] = useState<ValidationReport | null>(null);
+  const [deviationState, setDeviationState] =
+    useState<DeviationAnalysisState>(initialDeviationState);
   const mappingPanelRef = useRef<HTMLDivElement | null>(null);
 
   const normalizedActiveTable = useMemo<RawTable | null>(() => {
@@ -95,6 +109,18 @@ function App() {
     () => dataset?.experiments ?? [],
     [dataset?.experiments]
   );
+  const valueColumns = useMemo(() => {
+    if (!normalizedActiveTable) return [];
+    return mappingSelection.valueColumnIndices.map(
+      (index) => normalizedActiveTable.headers[index] ?? `Column ${index + 1}`
+    );
+  }, [mappingSelection.valueColumnIndices, normalizedActiveTable]);
+  const selectedExperiments = useMemo(() => {
+    if (importedExperiments.length === 0) return [];
+    return importedExperiments.filter(
+      (experiment) => deviationState.fitSelection[experiment.experimentId] ?? true
+    );
+  }, [deviationState.fitSelection, importedExperiments]);
 
   useEffect(() => {
     setDataset((prev) => (prev ? { ...prev, audit: auditEntries } : prev));
@@ -116,6 +142,7 @@ function App() {
     setMappingSuccessShown(false);
     setLastAppliedSelection(null);
     setImportReport(null);
+    setDeviationState(initialDeviationState);
   }, [activeRawTable]);
 
   useEffect(() => {
@@ -234,6 +261,7 @@ function App() {
     setMappingSuccess(null);
     setMappingSuccessShown(false);
     setLastAppliedSelection(null);
+    setDeviationState(initialDeviationState);
   };
 
   const handleSheetChange = (sheetName: string) => {
@@ -255,6 +283,7 @@ function App() {
     if (!activeRawTable || !importFileName) {
       return;
     }
+    setDeviationState(initialDeviationState);
     const result = applyMappingToDataset({
       table: activeRawTable,
       selection: mappingSelection,
@@ -475,12 +504,23 @@ function App() {
           table={normalizedActiveTable}
           mappingSelection={mappingSelection}
           datasetName={dataset?.name ?? null}
+          analysisState={deviationState}
+          onAnalysisStateChange={setDeviationState}
         />
       );
     }
 
     if (activeStep === "modeling") {
-      return <ModelingScreen />;
+      return (
+        <ModelingScreen
+          experiments={importedExperiments}
+          selectedExperiments={selectedExperiments}
+          valueColumns={valueColumns}
+          deviationResults={deviationState.results}
+          representativityResults={deviationState.representativityResults}
+          onBackToAnalysis={() => setActiveStep("deviations")}
+        />
+      );
     }
 
     return (

@@ -1,3 +1,7 @@
+## 2026-03-26
+- Modeling-Schritt mit echten Daten verdrahtet: nutzt die gemappten Messspalten und die in Schritt 3 vorgemerkten Experimente als Ausgangsbasis.
+- LLM-Ergebnisse (Abweichungen, Repräsentativität, Fit-Vormerkungen) bleiben beim Wechseln der Schritte erhalten.
+
 ## 2026-03-19
 - Modeling-Schritt neu gestaltet: Nutzer:innen ordnen Spalten den Rollen (Edukt, Produkt, Zwischenprodukt, Nebenprodukt) zu und definieren per einfacher Pfeil-Liste das Reaktionsnetzwerk inklusive Nebenpfaden.
 - Neue Guidance-Box mit automatischen Hinweisen und CTA-Leiste zur Bestätigung des Netzwerks ergänzt.
