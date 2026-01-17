@@ -1,3 +1,7 @@
+## 2026-04-09
+- Modeling-Schritt erweitert: Modeling starten, Varianten automatisch durchrechnen und die besten Alternativen mit Gleichungen, Kennzahlen und Diagrammen anzeigen.
+- Transparenzbereich ergänzt: alle berechneten Varianten und das verwendete Score-Kriterium sichtbar gemacht.
+
 ## 2026-04-02
 - Schritt „Reaktionsnetzwerk“ vor dem Modeling ergänzt: Rollen/Pfade werden separat bestätigt und als eigenes Stepper-Element geführt.
 - Modeling-Schritt aufgeteilt: neue Modellannahmen (Katalysator-Deaktivierung, unbekannte Nebenpfade) erzeugen eine explizite Reaktionsliste als Fit-Grundlage.

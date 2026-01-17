@@ -1,7 +1,11 @@
 import { useMemo } from "react";
 import type { DeviationAnalysisState } from "../../types/analysisState";
 import type { Experiment } from "../../types/experiment";
-import type { ModelingOptions, ReactionNetworkState } from "../../types/modeling";
+import type {
+  ModelingOptions,
+  ModelingRun,
+  ReactionNetworkState
+} from "../../types/modeling";
 import { buildModelingPlan } from "../../lib/modeling/buildModelingPlan";
 
 type ModelingScreenProps = {
@@ -9,7 +13,9 @@ type ModelingScreenProps = {
   analysisState: DeviationAnalysisState;
   networkState: ReactionNetworkState;
   options: ModelingOptions;
+  modelingRun: ModelingRun | null;
   onOptionsChange: (next: ModelingOptions) => void;
+  onRunModeling: () => void;
   onBack: () => void;
   onContinue: () => void;
 };
@@ -19,7 +25,9 @@ export const ModelingScreen = ({
   analysisState,
   networkState,
   options,
+  modelingRun,
   onOptionsChange,
+  onRunModeling,
   onBack,
   onContinue
 }: ModelingScreenProps) => {
@@ -75,6 +83,46 @@ export const ModelingScreen = ({
     () => buildModelingPlan(networkState, options),
     [networkState, options]
   );
+
+  const topVariants = useMemo(() => {
+    if (!modelingRun) return [];
+    const lookup = new Map(modelingRun.variants.map((variant) => [variant.id, variant]));
+    return modelingRun.topVariantIds
+      .map((id) => lookup.get(id))
+      .filter((variant): variant is NonNullable<typeof variant> => Boolean(variant));
+  }, [modelingRun]);
+
+  const renderChart = (points: ModelingRun["variants"][number]["chart"]) => {
+    if (points.length === 0) return null;
+    const width = 240;
+    const height = 120;
+    const padding = 12;
+    const xs = points.map((point) => point.x);
+    const ys = points.flatMap((point) => [point.y, point.yFit]);
+    const minX = Math.min(...xs);
+    const maxX = Math.max(...xs);
+    const minY = Math.min(...ys);
+    const maxY = Math.max(...ys);
+    const scaleX = (value: number) =>
+      padding + ((value - minX) / (maxX - minX || 1)) * (width - padding * 2);
+    const scaleY = (value: number) =>
+      height - padding - ((value - minY) / (maxY - minY || 1)) * (height - padding * 2);
+    const buildPath = (key: "y" | "yFit") =>
+      points
+        .map((point, index) => {
+          const x = scaleX(point.x);
+          const y = scaleY(point[key]);
+          return `${index === 0 ? "M" : "L"}${x},${y}`;
+        })
+        .join(" ");
+
+    return (
+      <svg className="modeling-chart" viewBox={`0 0 ${width} ${height}`} role="img">
+        <path className="chart-line" d={buildPath("y")} />
+        <path className="chart-line fit" d={buildPath("yFit")} />
+      </svg>
+    );
+  };
 
   return (
     <div className="modeling-screen" aria-labelledby="modeling-fit-heading">
@@ -250,6 +298,144 @@ export const ModelingScreen = ({
         </div>
       </div>
 
+      <div className="card modeling-card modeling-results">
+        <div className="card-header">
+          <div>
+            <p className="eyebrow">3 · Modeling durchführen</p>
+            <h3>Varianten vergleichen und Ergebnisse einsehen</h3>
+            <p className="muted">
+              Nach dem Start werden alle Varianten durchgerechnet. Die besten Alternativen
+              erscheinen mit Gleichungen, Diagrammen und Qualitätskennzahlen.
+            </p>
+          </div>
+          {modelingRun && (
+            <span className="pill soft">
+              Berechnet · {new Date(modelingRun.requestedAt).toLocaleTimeString("de-DE")}
+            </span>
+          )}
+        </div>
+        <div className="card-body">
+          {!modelingRun ? (
+            <p className="muted">
+              Das Modeling ist noch nicht gestartet. Starte den Lauf, um alle Varianten zu prüfen.
+            </p>
+          ) : (
+            <div className="modeling-results-grid">
+              <div className="modeling-results-summary">
+                <div className="summary-pill">
+                  <span className="label">Varianten</span>
+                  <strong>{modelingRun.summary.variantCount}</strong>
+                </div>
+                <div className="summary-pill">
+                  <span className="label">Experimente</span>
+                  <strong>{modelingRun.summary.experimentCount}</strong>
+                </div>
+                <div className="summary-pill">
+                  <span className="label">Messreihen</span>
+                  <strong>{modelingRun.summary.seriesCount}</strong>
+                </div>
+                <div className="summary-pill">
+                  <span className="label">Datenpunkte</span>
+                  <strong>{modelingRun.summary.pointCount}</strong>
+                </div>
+              </div>
+
+              <div className="modeling-top-variants">
+                {topVariants.map((variant, index) => (
+                  <div key={variant.id} className="modeling-variant-card">
+                    <div className="variant-header">
+                      <div>
+                        <p className="eyebrow">
+                          {index === 0 ? "Beste Passung" : `Alternative ${index + 1}`}
+                        </p>
+                        <h4>{variant.label}</h4>
+                        <p className="muted">
+                          {variant.parameters} Parameter · {variant.plan.reactions.length} Reaktionen
+                        </p>
+                      </div>
+                      {variant.isSelected && <span className="pill">User-Variante</span>}
+                    </div>
+                    <div className="variant-metrics">
+                      <div>
+                        <span className="label">R²</span>
+                        <strong>{variant.metrics.r2.toFixed(3)}</strong>
+                      </div>
+                      <div>
+                        <span className="label">RMSE</span>
+                        <strong>{variant.metrics.rmse.toFixed(3)}</strong>
+                      </div>
+                      <div>
+                        <span className="label">AIC</span>
+                        <strong>{variant.metrics.aic.toFixed(2)}</strong>
+                      </div>
+                      <div>
+                        <span className="label">BIC</span>
+                        <strong>{variant.metrics.bic.toFixed(2)}</strong>
+                      </div>
+                    </div>
+                    <div className="variant-content">
+                      <div className="variant-equations">
+                        <h5>Gleichungen</h5>
+                        <ul>
+                          {variant.equations.map((equation) => (
+                            <li key={equation}>
+                              <code>{equation}</code>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div className="variant-chart">
+                        <h5>Diagramm</h5>
+                        {renderChart(variant.chart)}
+                        <p className="muted">Messpunkte (dunkel) vs. Fit (blau).</p>
+                      </div>
+                    </div>
+                    <div className="variant-notes">
+                      <h5>Annahmen</h5>
+                      <ul>
+                        {variant.assumptions.map((assumption) => (
+                          <li key={assumption}>{assumption}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="hint-card">
+                <h4>Transparenz: Was wurde gerechnet?</h4>
+                <ul>
+                  {modelingRun.log.map((entry) => (
+                    <li key={entry}>{entry}</li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="modeling-variant-list">
+                <h4>Alle berechneten Varianten</h4>
+                <div className="variant-list">
+                  {modelingRun.variants.map((variant) => (
+                    <div key={variant.id} className="variant-row">
+                      <div>
+                        <p className="variant-title">{variant.label}</p>
+                        <p className="muted">
+                          {variant.parameters} Parameter · {variant.pointCount} Punkte ·{" "}
+                          {variant.plan.reactions.length} Reaktionen
+                        </p>
+                      </div>
+                      <div className="variant-metrics-inline">
+                        <span>R² {variant.metrics.r2.toFixed(3)}</span>
+                        <span>AIC {variant.metrics.aic.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
       <div className="modeling-footer">
         <div className="modeling-guidance">
           <h4>Fit-Check</h4>
@@ -264,11 +450,23 @@ export const ModelingScreen = ({
           </button>
           <button
             type="button"
+            className="btn btn-secondary"
+            disabled={
+              !networkState.confirmed ||
+              modelingPlan.reactions.length === 0 ||
+              selectedExperiments.length === 0
+            }
+            onClick={onRunModeling}
+          >
+            Modeling starten
+          </button>
+          <button
+            type="button"
             className="btn btn-primary"
-            disabled={!networkState.confirmed || modelingPlan.reactions.length === 0}
+            disabled={!modelingRun}
             onClick={onContinue}
           >
-            Fit vorbereiten
+            Weiter zum Report
           </button>
         </div>
       </div>
