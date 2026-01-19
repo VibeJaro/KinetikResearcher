@@ -8,6 +8,13 @@ import type {
   ReactionNetworkState
 } from "../../types/modeling";
 import { buildModelingPlan } from "./buildModelingPlan";
+import {
+  buildComparisonSummary,
+  diagnosticsReport,
+  fitModelParameters,
+  generateModelCandidates,
+  validateModelingInputs
+} from "./modelingScripts";
 
 type ModelingRunInput = {
   experiments: Experiment[];
@@ -140,6 +147,15 @@ export const runModeling = ({
   networkState,
   options
 }: ModelingRunInput): ModelingRun => {
+  const { preflight, audit: preflightAudit } = validateModelingInputs({
+    experiments,
+    analysisState,
+    networkState
+  });
+  const { candidates, audit: candidateAudit } = generateModelCandidates({
+    networkState,
+    options
+  });
   const selectedExperiments = getSelectedExperiments(experiments, analysisState);
   const seriesCount = selectedExperiments.reduce(
     (sum, experiment) => sum + experiment.series.length,
@@ -153,6 +169,7 @@ export const runModeling = ({
   );
   const referenceSeries = getReferenceSeries(selectedExperiments);
   const variantOptions = buildVariantOptions(options);
+  const auditTrail = [preflightAudit, candidateAudit];
 
   const variants: ModelingVariant[] = variantOptions.map((variant, index) => {
     const plan = buildModelingPlan(networkState, variant);
@@ -176,6 +193,11 @@ export const runModeling = ({
       variant.includeDeactivation === options.includeDeactivation &&
       variant.includeUnknownSidePaths === options.includeUnknownSidePaths &&
       variant.deactivationModel === options.deactivationModel;
+    const parametersDetail = fitModelParameters({
+      parameterCount: parameters,
+      baseValue: Number((0.12 + index * 0.04).toFixed(3))
+    });
+    const diagnostics = diagnosticsReport({ metrics: { r2, rmse, aic, bic, score: aic } });
 
     return {
       id: `variant-${index + 1}`,
@@ -191,6 +213,8 @@ export const runModeling = ({
         bic,
         score: aic
       },
+      parametersDetail,
+      diagnostics,
       parameters,
       experimentCount: selectedExperiments.length,
       seriesCount,
@@ -202,16 +226,28 @@ export const runModeling = ({
 
   const sorted = [...variants].sort((a, b) => a.metrics.score - b.metrics.score);
   const topVariantIds = sorted.slice(0, 3).map((variant) => variant.id);
+  const comparisonSummary = buildComparisonSummary({
+    metrics: variants.map((variant) => variant.metrics)
+  });
   const log = [
     `Datengrundlage: ${selectedExperiments.length} Experimente, ${seriesCount} Messreihen, ${pointCount} Punkte.`,
     `Varianten geprüft: ${variants.length} Modellvarianten mit unterschiedlichen Annahmen.`,
-    `Score-Kriterium: AIC (niedriger ist besser).`
+    `Score-Kriterium: AIC (niedriger ist besser).`,
+    comparisonSummary
   ];
 
   return {
     requestedAt: new Date().toISOString(),
     variants,
     topVariantIds,
+    preflight,
+    candidates,
+    auditTrail,
+    llmGuidance: [
+      preflight.summary,
+      "Ich erkläre dir Warnungen in Klartext und schlage nächste Schritte vor.",
+      "Die Berechnung bleibt deterministisch, LLM‑Hinweise sind nur Erklärungen."
+    ],
     summary: {
       experimentCount: selectedExperiments.length,
       seriesCount,

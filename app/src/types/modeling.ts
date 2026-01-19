@@ -51,6 +51,56 @@ export type ModelingChartPoint = {
   yFit: number;
 };
 
+export type ModelingPreflightStatus = "ok" | "warning" | "fail";
+
+export type ModelingPreflightCheck = {
+  id: string;
+  title: string;
+  status: ModelingPreflightStatus;
+  detail: string;
+  nextStep: string;
+};
+
+export type ModelingPreflight = {
+  checks: ModelingPreflightCheck[];
+  summary: string;
+};
+
+export type ModelingCandidate = {
+  id: string;
+  label: string;
+  family: "Massenwirkung" | "Empirisch" | "LHHW" | "Reversibel" | "Inhibition";
+  rationale: string;
+  parameterCount: number;
+  recommended: boolean;
+  llmSummary: string;
+};
+
+export type ModelingParameter = {
+  name: string;
+  value: number;
+  unit: string;
+  min: number;
+  max: number;
+  uncertainty: number;
+  status: "ok" | "review";
+};
+
+export type ModelingDiagnostics = {
+  residualPattern: string;
+  warnings: string[];
+  recommendation: string;
+  llmSummary: string;
+};
+
+export type ModelingScriptRun = {
+  scriptName: string;
+  version: string;
+  inputSummary: string;
+  outputSummary: string;
+  ranAt: string;
+};
+
 export type ModelingVariantMetrics = {
   r2: number;
   rmse: number;
@@ -67,6 +117,8 @@ export type ModelingVariant = {
   plan: ModelingPlan;
   equations: string[];
   metrics: ModelingVariantMetrics;
+  parametersDetail: ModelingParameter[];
+  diagnostics: ModelingDiagnostics;
   parameters: number;
   experimentCount: number;
   seriesCount: number;
@@ -79,6 +131,10 @@ export type ModelingRun = {
   requestedAt: string;
   variants: ModelingVariant[];
   topVariantIds: string[];
+  preflight: ModelingPreflight;
+  candidates: ModelingCandidate[];
+  auditTrail: ModelingScriptRun[];
+  llmGuidance: string[];
   summary: {
     experimentCount: number;
     seriesCount: number;

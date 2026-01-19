@@ -7,6 +7,10 @@ import type {
   ReactionNetworkState
 } from "../../types/modeling";
 import { buildModelingPlan } from "../../lib/modeling/buildModelingPlan";
+import {
+  generateModelCandidates,
+  validateModelingInputs
+} from "../../lib/modeling/modelingScripts";
 
 type ModelingScreenProps = {
   experiments: Experiment[];
@@ -81,6 +85,19 @@ export const ModelingScreen = ({
 
   const modelingPlan = useMemo(
     () => buildModelingPlan(networkState, options),
+    [networkState, options]
+  );
+  const preflightPreview = useMemo(
+    () =>
+      validateModelingInputs({
+        experiments,
+        analysisState,
+        networkState
+      }).preflight,
+    [analysisState, experiments, networkState]
+  );
+  const candidatePreview = useMemo(
+    () => generateModelCandidates({ networkState, options }).candidates,
     [networkState, options]
   );
 
@@ -185,6 +202,35 @@ export const ModelingScreen = ({
         </div>
       </div>
 
+      <div className="card modeling-card">
+        <div className="card-header">
+          <div>
+            <p className="eyebrow">Preflight</p>
+            <h3>Checkliste vor dem Fit</h3>
+            <p className="muted">
+              Prüfe die wichtigsten Grundlagen. Das LLM erklärt dir die Hinweise in Klartext.
+            </p>
+          </div>
+          <span className="pill soft">
+            {modelingRun?.preflight.summary ?? preflightPreview.summary}
+          </span>
+        </div>
+        <div className="card-body">
+          <div className="preflight-grid">
+            {(modelingRun?.preflight.checks ?? preflightPreview.checks).map((check) => (
+              <div key={check.id} className="preflight-row">
+                <div>
+                  <strong>{check.title}</strong>
+                  <p className="muted">{check.detail}</p>
+                  <p className="muted">Nächster Schritt: {check.nextStep}</p>
+                </div>
+                <span className={`status-pill ${check.status}`}>{check.status}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
       <div className="modeling-grid">
         <div className="card modeling-card">
           <div className="card-header">
@@ -256,9 +302,40 @@ export const ModelingScreen = ({
         </div>
 
         <div className="card modeling-card">
+          <div className="card-header">
+            <div>
+              <p className="eyebrow">2 · Modellkandidaten</p>
+              <h3>Plausible Ansatzfamilien</h3>
+              <p className="muted">
+                Der Agent schlägt erklärbare Kandidaten vor. Das LLM liefert Kurzinfos für
+                Nicht‑Expert:innen.
+              </p>
+            </div>
+          </div>
+          <div className="card-body">
+            <div className="candidate-list">
+              {(modelingRun?.candidates ?? candidatePreview).map((candidate) => (
+                <div key={candidate.id} className="candidate-row">
+                  <div>
+                    <strong>{candidate.label}</strong>
+                    <p className="muted">{candidate.rationale}</p>
+                    <p className="muted">LLM‑Hinweis: {candidate.llmSummary}</p>
+                  </div>
+                  <div className="candidate-meta">
+                    <span className="pill">{candidate.family}</span>
+                    <span className="pill soft">{candidate.parameterCount} Parameter</span>
+                    {candidate.recommended && <span className="pill">Empfohlen</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="card modeling-card">
           <div className="card-header align-center">
             <div>
-              <p className="eyebrow">2 · Modellstruktur</p>
+              <p className="eyebrow">3 · Modellstruktur</p>
               <h3>Reaktionsliste für den Fit</h3>
               <p className="muted">
                 Das Modeling erzeugt aus dem Netzwerk eine Reaktionsliste inklusive Nebenpfaden.
@@ -301,7 +378,7 @@ export const ModelingScreen = ({
       <div className="card modeling-card modeling-results">
         <div className="card-header">
           <div>
-            <p className="eyebrow">3 · Modeling durchführen</p>
+            <p className="eyebrow">4 · Modeling durchführen</p>
             <h3>Varianten vergleichen und Ergebnisse einsehen</h3>
             <p className="muted">
               Nach dem Start werden alle Varianten durchgerechnet. Die besten Alternativen
@@ -398,15 +475,70 @@ export const ModelingScreen = ({
                         ))}
                       </ul>
                     </div>
+                    <div className="variant-parameters">
+                      <h5>Parameter</h5>
+                      <div className="parameter-list">
+                        {variant.parametersDetail.map((parameter) => (
+                          <div key={parameter.name} className="parameter-row">
+                            <strong>{parameter.name}</strong>
+                            <span>
+                              {parameter.value} {parameter.unit}
+                            </span>
+                            <span className="muted">
+                              [{parameter.min} – {parameter.max}]
+                            </span>
+                            <span className={`status-pill ${parameter.status}`}>
+                              {parameter.status}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="variant-diagnostics">
+                      <h5>Diagnostik</h5>
+                      <p className="muted">{variant.diagnostics.residualPattern}</p>
+                      {variant.diagnostics.warnings.length > 0 && (
+                        <ul>
+                          {variant.diagnostics.warnings.map((warning) => (
+                            <li key={warning}>{warning}</li>
+                          ))}
+                        </ul>
+                      )}
+                      <p className="muted">Empfehlung: {variant.diagnostics.recommendation}</p>
+                      <p className="muted">LLM‑Hinweis: {variant.diagnostics.llmSummary}</p>
+                    </div>
                   </div>
                 ))}
               </div>
+
+              {modelingRun?.llmGuidance && (
+                <div className="hint-card">
+                  <h4>LLM‑Navigation (Erklärtexte)</h4>
+                  <ul>
+                    {modelingRun.llmGuidance.map((note) => (
+                      <li key={note}>{note}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               <div className="hint-card">
                 <h4>Transparenz: Was wurde gerechnet?</h4>
                 <ul>
                   {modelingRun.log.map((entry) => (
                     <li key={entry}>{entry}</li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="hint-card">
+                <h4>Audit-Log: Skriptläufe</h4>
+                <ul>
+                  {modelingRun.auditTrail.map((entry) => (
+                    <li key={`${entry.scriptName}-${entry.ranAt}`}>
+                      {entry.scriptName} · {entry.version} · {entry.inputSummary} →{" "}
+                      {entry.outputSummary}
+                    </li>
                   ))}
                 </ul>
               </div>
